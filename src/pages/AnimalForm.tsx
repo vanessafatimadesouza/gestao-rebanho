@@ -16,7 +16,6 @@ export function AnimalForm() {
   const [sex, setSex] = useState<'M' | 'F'>('F')
   const [breed, setBreed] = useState('')
   const [birthDate, setBirthDate] = useState('')
-  const [motherTag, setMotherTag] = useState('')
   const [fatherTag, setFatherTag] = useState('')
   const [status, setStatus] = useState<Animal['status']>('active')
   const [notes, setNotes] = useState('')

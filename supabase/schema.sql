@@ -1,23 +1,22 @@
 -- ============================================================
--- Gestão de Rebanho Bovino — Schema Supabase
--- Cole este SQL no SQL Editor do painel do Supabase
+-- Gestão de Rebanho Bovino — Schema Supabase (IF NOT EXISTS)
+-- Seguro para rodar mesmo que as tabelas já existam
 -- ============================================================
 
--- Extensão para UUIDs
 create extension if not exists "uuid-ossp";
 
 -- ============================================================
 -- TABELAS
 -- ============================================================
 
-create table public.farms (
+create table if not exists public.farms (
   id uuid primary key default uuid_generate_v4(),
   name text not null,
   created_by uuid references auth.users(id) on delete set null,
   created_at timestamptz default now()
 );
 
-create table public.farm_members (
+create table if not exists public.farm_members (
   id uuid primary key default uuid_generate_v4(),
   farm_id uuid references public.farms(id) on delete cascade not null,
   user_id uuid references auth.users(id) on delete cascade not null,
@@ -26,7 +25,7 @@ create table public.farm_members (
   unique(farm_id, user_id)
 );
 
-create table public.animals (
+create table if not exists public.animals (
   id uuid primary key default uuid_generate_v4(),
   farm_id uuid references public.farms(id) on delete cascade not null,
   tag text not null,
@@ -42,7 +41,7 @@ create table public.animals (
   unique(farm_id, tag)
 );
 
-create table public.vaccinations (
+create table if not exists public.vaccinations (
   id uuid primary key default uuid_generate_v4(),
   animal_id uuid references public.animals(id) on delete cascade not null,
   farm_id uuid references public.farms(id) on delete cascade not null,
@@ -55,7 +54,7 @@ create table public.vaccinations (
   created_at timestamptz default now()
 );
 
-create table public.births (
+create table if not exists public.births (
   id uuid primary key default uuid_generate_v4(),
   mother_id uuid references public.animals(id) on delete set null,
   farm_id uuid references public.farms(id) on delete cascade not null,
@@ -67,7 +66,7 @@ create table public.births (
   created_at timestamptz default now()
 );
 
-create table public.events (
+create table if not exists public.events (
   id uuid primary key default uuid_generate_v4(),
   animal_id uuid references public.animals(id) on delete cascade not null,
   farm_id uuid references public.farms(id) on delete cascade not null,
@@ -80,7 +79,7 @@ create table public.events (
 );
 
 -- ============================================================
--- RLS (Row Level Security) — segurança por fazenda
+-- RLS (Row Level Security)
 -- ============================================================
 
 alter table public.farms enable row level security;
@@ -90,7 +89,7 @@ alter table public.vaccinations enable row level security;
 alter table public.births enable row level security;
 alter table public.events enable row level security;
 
--- Função auxiliar: retorna os farm_ids do usuário autenticado
+-- Função auxiliar
 create or replace function public.my_farm_ids()
 returns setof uuid
 language sql
@@ -100,76 +99,112 @@ as $$
   select farm_id from public.farm_members where user_id = auth.uid()
 $$;
 
--- Farms: ver e criar
-create policy "Ver fazendas que sou membro" on public.farms
-  for select using (id in (select public.my_farm_ids()));
+-- Farms
+do $$ begin
+  create policy "Ver fazendas que sou membro" on public.farms
+    for select using (id in (select public.my_farm_ids()));
+exception when duplicate_object then null; end $$;
 
-create policy "Criar fazenda" on public.farms
-  for insert with check (auth.uid() is not null);
+do $$ begin
+  create policy "Criar fazenda" on public.farms
+    for insert with check (auth.uid() is not null);
+exception when duplicate_object then null; end $$;
 
-create policy "Dono pode atualizar fazenda" on public.farms
-  for update using (
-    id in (select farm_id from public.farm_members where user_id = auth.uid() and role = 'owner')
-  );
+do $$ begin
+  create policy "Dono pode atualizar fazenda" on public.farms
+    for update using (
+      id in (select farm_id from public.farm_members where user_id = auth.uid() and role = 'owner')
+    );
+exception when duplicate_object then null; end $$;
 
 -- Farm members
-create policy "Ver membros da minha fazenda" on public.farm_members
-  for select using (farm_id in (select public.my_farm_ids()));
+do $$ begin
+  create policy "Ver membros da minha fazenda" on public.farm_members
+    for select using (farm_id in (select public.my_farm_ids()));
+exception when duplicate_object then null; end $$;
 
-create policy "Entrar em fazenda" on public.farm_members
-  for insert with check (user_id = auth.uid());
+do $$ begin
+  create policy "Entrar em fazenda" on public.farm_members
+    for insert with check (user_id = auth.uid());
+exception when duplicate_object then null; end $$;
 
 -- Animals
-create policy "Ver animais da fazenda" on public.animals
-  for select using (farm_id in (select public.my_farm_ids()));
+do $$ begin
+  create policy "Ver animais da fazenda" on public.animals
+    for select using (farm_id in (select public.my_farm_ids()));
+exception when duplicate_object then null; end $$;
 
-create policy "Criar animal na fazenda" on public.animals
-  for insert with check (farm_id in (select public.my_farm_ids()));
+do $$ begin
+  create policy "Criar animal na fazenda" on public.animals
+    for insert with check (farm_id in (select public.my_farm_ids()));
+exception when duplicate_object then null; end $$;
 
-create policy "Atualizar animal da fazenda" on public.animals
-  for update using (farm_id in (select public.my_farm_ids()));
+do $$ begin
+  create policy "Atualizar animal da fazenda" on public.animals
+    for update using (farm_id in (select public.my_farm_ids()));
+exception when duplicate_object then null; end $$;
 
-create policy "Deletar animal da fazenda" on public.animals
-  for delete using (farm_id in (select public.my_farm_ids()));
+do $$ begin
+  create policy "Deletar animal da fazenda" on public.animals
+    for delete using (farm_id in (select public.my_farm_ids()));
+exception when duplicate_object then null; end $$;
 
 -- Vaccinations
-create policy "Ver vacinas da fazenda" on public.vaccinations
-  for select using (farm_id in (select public.my_farm_ids()));
+do $$ begin
+  create policy "Ver vacinas da fazenda" on public.vaccinations
+    for select using (farm_id in (select public.my_farm_ids()));
+exception when duplicate_object then null; end $$;
 
-create policy "Criar vacina na fazenda" on public.vaccinations
-  for insert with check (farm_id in (select public.my_farm_ids()));
+do $$ begin
+  create policy "Criar vacina na fazenda" on public.vaccinations
+    for insert with check (farm_id in (select public.my_farm_ids()));
+exception when duplicate_object then null; end $$;
 
-create policy "Deletar vacina da fazenda" on public.vaccinations
-  for delete using (farm_id in (select public.my_farm_ids()));
+do $$ begin
+  create policy "Deletar vacina da fazenda" on public.vaccinations
+    for delete using (farm_id in (select public.my_farm_ids()));
+exception when duplicate_object then null; end $$;
 
 -- Births
-create policy "Ver partos da fazenda" on public.births
-  for select using (farm_id in (select public.my_farm_ids()));
+do $$ begin
+  create policy "Ver partos da fazenda" on public.births
+    for select using (farm_id in (select public.my_farm_ids()));
+exception when duplicate_object then null; end $$;
 
-create policy "Criar parto na fazenda" on public.births
-  for insert with check (farm_id in (select public.my_farm_ids()));
+do $$ begin
+  create policy "Criar parto na fazenda" on public.births
+    for insert with check (farm_id in (select public.my_farm_ids()));
+exception when duplicate_object then null; end $$;
 
-create policy "Deletar parto da fazenda" on public.births
-  for delete using (farm_id in (select public.my_farm_ids()));
+do $$ begin
+  create policy "Deletar parto da fazenda" on public.births
+    for delete using (farm_id in (select public.my_farm_ids()));
+exception when duplicate_object then null; end $$;
 
 -- Events
-create policy "Ver eventos da fazenda" on public.events
-  for select using (farm_id in (select public.my_farm_ids()));
+do $$ begin
+  create policy "Ver eventos da fazenda" on public.events
+    for select using (farm_id in (select public.my_farm_ids()));
+exception when duplicate_object then null; end $$;
 
-create policy "Criar evento na fazenda" on public.events
-  for insert with check (farm_id in (select public.my_farm_ids()));
+do $$ begin
+  create policy "Criar evento na fazenda" on public.events
+    for insert with check (farm_id in (select public.my_farm_ids()));
+exception when duplicate_object then null; end $$;
 
-create policy "Deletar evento da fazenda" on public.events
-  for delete using (farm_id in (select public.my_farm_ids()));
+do $$ begin
+  create policy "Deletar evento da fazenda" on public.events
+    for delete using (farm_id in (select public.my_farm_ids()));
+exception when duplicate_object then null; end $$;
 
 -- ============================================================
--- ÍNDICES para performance
+-- ÍNDICES
 -- ============================================================
 
-create index on public.animals(farm_id);
-create index on public.animals(status);
-create index on public.vaccinations(farm_id);
-create index on public.vaccinations(next_due_date);
-create index on public.births(farm_id);
-create index on public.events(animal_id);
-create index on public.farm_members(user_id);
+create index if not exists idx_animals_farm on public.animals(farm_id);
+create index if not exists idx_animals_status on public.animals(status);
+create index if not exists idx_vaccinations_farm on public.vaccinations(farm_id);
+create index if not exists idx_vaccinations_due on public.vaccinations(next_due_date);
+create index if not exists idx_births_farm on public.births(farm_id);
+create index if not exists idx_events_animal on public.events(animal_id);
+create index if not exists idx_farm_members_user on public.farm_members(user_id);

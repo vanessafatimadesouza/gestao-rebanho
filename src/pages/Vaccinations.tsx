@@ -7,7 +7,6 @@ import { Vaccination, Animal } from '../types'
 
 export function VaccinationsList() {
   const { farm } = useAuth()
-  const navigate = useNavigate()
   const [vaccinations, setVaccinations] = useState<Vaccination[]>([])
   const [loading, setLoading] = useState(true)
 
