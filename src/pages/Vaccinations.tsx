@@ -59,7 +59,7 @@ export function VaccinationsList() {
                         to={`/animais/${animal.id}`}
                         className="text-xs text-brand-700 hover:underline"
                       >
-                        🐄 {animal.tag}{animal.name ? ` (${animal.name})` : ''}
+                        🐄 {animal.name ?? animal.tag ?? 'Sem nome'}
                       </Link>
                     )}
                     {v.dose && <p className="text-xs text-gray-400 mt-0.5">Dose: {v.dose}</p>}
@@ -153,7 +153,7 @@ export function VaccinationForm() {
             <option value="">— Selecionar animal —</option>
             {animals.map(a => (
               <option key={a.id} value={a.id}>
-                {a.tag}{a.name ? ` (${a.name})` : ''}
+                {a.name ?? a.tag ?? 'Sem nome'}
               </option>
             ))}
           </select>

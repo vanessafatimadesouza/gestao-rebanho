@@ -11,6 +11,7 @@ import { AnimalDetail } from './pages/AnimalDetail'
 import { VaccinationsList, VaccinationForm } from './pages/Vaccinations'
 import { BirthsList, BirthForm } from './pages/Births'
 import { EventForm } from './pages/EventForm'
+import { ReproductionForm } from './pages/ReproductionForm'
 
 function AppRoutes() {
   const { session, farm, loading } = useAuth()
@@ -125,6 +126,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <Layout>
               <EventForm />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reproducao/nova"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <ReproductionForm />
             </Layout>
           </ProtectedRoute>
         }

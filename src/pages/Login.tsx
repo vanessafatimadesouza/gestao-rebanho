@@ -35,27 +35,27 @@ export function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-brand-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#edf5ef] flex items-center justify-center p-5">
       <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
+        <div className="mb-8 text-center">
           <span className="text-6xl">🐄</span>
           <h1 className="mt-3 text-2xl font-bold text-brand-900">Gestão de Rebanho</h1>
           <p className="text-brand-700 text-sm mt-1">Controle bovino sincronizado</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-md p-6">
-          <div className="flex rounded-lg overflow-hidden border border-brand-200 mb-6">
+        <div className="app-surface p-6 sm:p-7">
+          <div className="mb-6 flex overflow-hidden rounded-xl border border-brand-200 bg-brand-50">
             <button
               onClick={() => setMode('login')}
               className={`flex-1 py-2 text-sm font-medium transition-colors
-                ${mode === 'login' ? 'bg-brand-700 text-white' : 'text-brand-700 hover:bg-brand-50'}`}
+                ${mode === 'login' ? 'bg-brand-700 text-white shadow-sm' : 'text-brand-700 hover:bg-brand-100'}`}
             >
               Entrar
             </button>
             <button
               onClick={() => setMode('register')}
               className={`flex-1 py-2 text-sm font-medium transition-colors
-                ${mode === 'register' ? 'bg-brand-700 text-white' : 'text-brand-700 hover:bg-brand-50'}`}
+                ${mode === 'register' ? 'bg-brand-700 text-white shadow-sm' : 'text-brand-700 hover:bg-brand-100'}`}
             >
               Criar conta
             </button>
@@ -69,7 +69,7 @@ export function Login() {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full rounded-xl border border-[#dce7df] bg-[#fbfdfb] px-3 py-2.5 text-sm outline-none"
                 placeholder="seu@email.com"
               />
             </div>
@@ -81,7 +81,7 @@ export function Login() {
                 onChange={e => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                className="w-full rounded-xl border border-[#dce7df] bg-[#fbfdfb] px-3 py-2.5 text-sm outline-none"
                 placeholder="mínimo 6 caracteres"
               />
             </div>
@@ -92,7 +92,7 @@ export function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-brand-700 hover:bg-brand-800 text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-60"
+              className="w-full rounded-xl bg-brand-700 py-3 font-semibold text-white shadow-[0_8px_18px_rgba(31,73,51,.18)] transition-colors hover:bg-brand-800 disabled:opacity-60"
             >
               {loading ? 'Aguarde...' : mode === 'login' ? 'Entrar' : 'Criar conta'}
             </button>

@@ -28,13 +28,16 @@ create table if not exists public.farm_members (
 create table if not exists public.animals (
   id uuid primary key default uuid_generate_v4(),
   farm_id uuid references public.farms(id) on delete cascade not null,
-  tag text not null,
+  tag text,
   name text,
   sex text check (sex in ('M', 'F')) not null,
   breed text,
   birth_date date,
   mother_id uuid references public.animals(id) on delete set null,
+  mother_name text,
+  father_id uuid references public.animals(id) on delete set null,
   father_tag text,
+  image_url text,
   status text check (status in ('active', 'sold', 'dead')) default 'active',
   notes text,
   created_at timestamptz default now(),
@@ -78,6 +81,18 @@ create table if not exists public.events (
   created_at timestamptz default now()
 );
 
+create table if not exists public.pregnancies (
+  id uuid primary key default uuid_generate_v4(),
+  farm_id uuid references public.farms(id) on delete cascade not null,
+  mother_id uuid references public.animals(id) on delete cascade not null,
+  breeding_date date not null,
+  expected_birth_date date not null,
+  status text check (status in ('pregnant', 'gave_birth', 'not_pregnant')) default 'pregnant',
+  notes text,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz default now()
+);
+
 -- ============================================================
 -- RLS (Row Level Security)
 -- ============================================================
@@ -88,6 +103,7 @@ alter table public.animals enable row level security;
 alter table public.vaccinations enable row level security;
 alter table public.births enable row level security;
 alter table public.events enable row level security;
+alter table public.pregnancies enable row level security;
 
 -- Função auxiliar
 create or replace function public.my_farm_ids()
@@ -197,6 +213,22 @@ do $$ begin
     for delete using (farm_id in (select public.my_farm_ids()));
 exception when duplicate_object then null; end $$;
 
+-- Reprodução
+do $$ begin
+  create policy "Ver gestações da fazenda" on public.pregnancies
+    for select using (farm_id in (select public.my_farm_ids()));
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create policy "Criar gestação na fazenda" on public.pregnancies
+    for insert with check (farm_id in (select public.my_farm_ids()));
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create policy "Atualizar gestação na fazenda" on public.pregnancies
+    for update using (farm_id in (select public.my_farm_ids()));
+exception when duplicate_object then null; end $$;
+
 -- ============================================================
 -- ÍNDICES
 -- ============================================================
@@ -207,4 +239,5 @@ create index if not exists idx_vaccinations_farm on public.vaccinations(farm_id)
 create index if not exists idx_vaccinations_due on public.vaccinations(next_due_date);
 create index if not exists idx_births_farm on public.births(farm_id);
 create index if not exists idx_events_animal on public.events(animal_id);
+create index if not exists idx_pregnancies_mother on public.pregnancies(mother_id);
 create index if not exists idx_farm_members_user on public.farm_members(user_id);

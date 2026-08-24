@@ -65,7 +65,7 @@ export function BirthsList() {
                       <p className="text-xs text-gray-500">
                         Mãe:{' '}
                         <Link to={`/animais/${mother.id}`} className="text-brand-700 hover:underline">
-                          {mother.tag}{mother.name ? ` (${mother.name})` : ''}
+                          {mother.name ?? mother.tag ?? 'Sem nome'}
                         </Link>
                       </p>
                     )}
@@ -73,7 +73,7 @@ export function BirthsList() {
                       <p className="text-xs text-gray-500">
                         Cria:{' '}
                         <Link to={`/animais/${calf.id}`} className="text-brand-700 hover:underline">
-                          {calf.tag}{calf.name ? ` (${calf.name})` : ''}
+                          {calf.name ?? calf.tag ?? 'Sem nome'}
                         </Link>
                       </p>
                     )}
@@ -104,7 +104,6 @@ export function BirthForm() {
   const [birthType, setBirthType] = useState<Birth['birth_type']>('natural')
   const [notes, setNotes] = useState('')
   // Calf fields (optional)
-  const [calfTag, setCalfTag] = useState('')
   const [calfName, setCalfName] = useState('')
   const [calfSex, setCalfSex] = useState<'M' | 'F'>('F')
   const [registerCalf, setRegisterCalf] = useState(false)
@@ -135,13 +134,13 @@ export function BirthForm() {
     let calfId: string | null = null
 
     // Create calf animal first if requested
-    if (registerCalf && calfTag.trim()) {
+    if (registerCalf && calfName.trim()) {
       const { data: calf, error: calfErr } = await supabase
         .from('animals')
         .insert({
           farm_id: farm.id,
-          tag: calfTag.trim(),
-          name: calfName.trim() || null,
+          tag: null,
+          name: calfName.trim(),
           sex: calfSex,
           birth_date: birthDate,
           mother_id: motherId || null,
@@ -151,7 +150,7 @@ export function BirthForm() {
         .single()
 
       if (calfErr) {
-        setError(calfErr.code === '23505' ? 'Brinco da cria já cadastrado.' : calfErr.message)
+        setError(calfErr.message)
         setLoading(false)
         return
       }
@@ -169,6 +168,7 @@ export function BirthForm() {
     })
 
     if (birthErr) { setError(birthErr.message); setLoading(false); return }
+    if (motherId) await supabase.from('pregnancies').update({ status: 'gave_birth' }).eq('mother_id', motherId).eq('status', 'pregnant')
     navigate(preAnimalId ? `/animais/${preAnimalId}` : '/partos')
   }
 
@@ -191,7 +191,7 @@ export function BirthForm() {
             <option value="">— Selecionar fêmea —</option>
             {females.map(a => (
               <option key={a.id} value={a.id}>
-                {a.tag}{a.name ? ` (${a.name})` : ''}
+                {a.name ?? a.tag ?? 'Sem nome'}
               </option>
             ))}
           </select>
@@ -237,18 +237,7 @@ export function BirthForm() {
 
           {registerCalf && (
             <div className="mt-3 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelClass}>Brinco da cria *</label>
-                  <input
-                    type="text"
-                    value={calfTag}
-                    onChange={e => setCalfTag(e.target.value)}
-                    required={registerCalf}
-                    className={inputClass}
-                    placeholder="Ex: 5678"
-                  />
-                </div>
+              <div>
                 <div>
                   <label className={labelClass}>Sexo da cria *</label>
                   <select value={calfSex} onChange={e => setCalfSex(e.target.value as 'M' | 'F')} className={inputClass}>
@@ -258,12 +247,13 @@ export function BirthForm() {
                 </div>
               </div>
               <div>
-                <label className={labelClass}>Nome da cria (opcional)</label>
+                <label className={labelClass}>Nome da cria *</label>
                 <input
                   type="text"
                   value={calfName}
                   onChange={e => setCalfName(e.target.value)}
                   className={inputClass}
+                  required={registerCalf}
                   placeholder="Ex: Pintada"
                 />
               </div>

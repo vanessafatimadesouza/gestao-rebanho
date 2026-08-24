@@ -17,13 +17,16 @@ export interface FarmMember {
 export interface Animal {
   id: string
   farm_id: string
-  tag: string
+  tag: string | null
   name: string | null
   sex: 'M' | 'F'
   breed: string | null
   birth_date: string | null
   mother_id: string | null
+  mother_name: string | null
+  father_id: string | null
   father_tag: string | null
+  image_url: string | null
   status: 'active' | 'sold' | 'dead'
   notes: string | null
   created_at: string
@@ -67,6 +70,18 @@ export interface AnimalEvent {
   value: number | null
   description: string | null
   created_by: string
+  created_at: string
+}
+
+export interface Pregnancy {
+  id: string
+  farm_id: string
+  mother_id: string
+  breeding_date: string
+  expected_birth_date: string
+  status: 'pregnant' | 'gave_birth' | 'not_pregnant'
+  notes: string | null
+  created_by: string | null
   created_at: string
 }
 
