@@ -1,9 +1,10 @@
 import { useEffect, useState, FormEvent } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
-import { Plus, ArrowLeft } from 'lucide-react'
+import { Plus, ArrowLeft, ArrowRight } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { Birth, Animal } from '../types'
+import { AnimalPicker } from '../components/AnimalPicker'
 
 export function BirthsList() {
   const { farm } = useAuth()
@@ -99,6 +100,7 @@ export function BirthForm() {
   const preAnimalId = new URLSearchParams(location.search).get('animal') ?? ''
 
   const [females, setFemales] = useState<Pick<Animal, 'id' | 'tag' | 'name'>[]>([])
+  const [males, setMales] = useState<Pick<Animal, 'id' | 'tag' | 'name'>[]>([])
   const [motherId, setMotherId] = useState(preAnimalId)
   const [birthDate, setBirthDate] = useState(new Date().toISOString().split('T')[0])
   const [birthType, setBirthType] = useState<Birth['birth_type']>('natural')
@@ -106,29 +108,37 @@ export function BirthForm() {
   // Calf fields (optional)
   const [calfName, setCalfName] = useState('')
   const [calfSex, setCalfSex] = useState<'M' | 'F'>('F')
+  const [calfBreed, setCalfBreed] = useState('')
+  const [fatherId, setFatherId] = useState('')
   const [registerCalf, setRegisterCalf] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (farm) loadFemales()
+    if (farm) loadParents()
   }, [farm])
 
-  async function loadFemales() {
+  async function loadParents() {
     const { data } = await supabase
       .from('animals')
-      .select('id, tag, name')
+      .select('id, tag, name, sex')
       .eq('farm_id', farm!.id)
-      .eq('sex', 'F')
       .eq('status', 'active')
       .order('tag')
-    if (data) setFemales(data)
+    if (data) {
+      setFemales(data.filter(animal => animal.sex === 'F'))
+      setMales(data.filter(animal => animal.sex === 'M'))
+    }
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!farm || !user) return
     setError('')
+    if (!motherId) {
+      setError('Selecione a mãe para registrar o parto.')
+      return
+    }
     setLoading(true)
 
     let calfId: string | null = null
@@ -142,8 +152,10 @@ export function BirthForm() {
           tag: null,
           name: calfName.trim(),
           sex: calfSex,
+          breed: calfBreed.trim() || null,
           birth_date: birthDate,
           mother_id: motherId || null,
+          father_id: fatherId || null,
           status: 'active',
         })
         .select()
@@ -172,113 +184,25 @@ export function BirthForm() {
     navigate(preAnimalId ? `/animais/${preAnimalId}` : '/partos')
   }
 
-  const inputClass = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500'
-  const labelClass = 'block text-sm font-medium text-gray-700 mb-1'
+  const inputClass = 'w-full rounded-xl border border-[#dce7df] bg-[#fbfdfb] px-3 py-2.5 text-sm outline-none'
+  const labelClass = 'mb-1.5 block text-sm font-semibold text-[#415148]'
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg">
-          <ArrowLeft size={18} />
-        </button>
-        <h1 className="text-xl font-bold text-gray-800">Registrar parto</h1>
-      </div>
+    <div className="mx-auto max-w-5xl space-y-5">
+      <div className="flex items-center gap-3"><button onClick={() => navigate(-1)} className="rounded-xl p-2 text-[#516058] transition-colors hover:bg-white"><ArrowLeft size={18} /></button><div><p className="page-kicker">Reprodução</p><h1 className="mt-1 text-2xl font-bold tracking-tight text-[#17231b]">Registrar parto</h1></div></div>
+      <form onSubmit={handleSubmit} className="app-surface space-y-6 p-5 sm:p-7">
+        <div className={`relative grid gap-5 ${registerCalf ? 'lg:grid-cols-2' : ''}`}>
+          <section className="space-y-5 rounded-2xl border border-[#e2ebe5] bg-white p-4 sm:p-5">
+            <div><p className="text-sm font-bold text-[#24362b]">Dados do parto</p><p className="mt-1 text-xs text-[#718078]">Informe os dados principais do nascimento.</p></div>
+            <div className="grid gap-4 sm:grid-cols-2"><div className="sm:col-span-2"><label className={labelClass}>Mãe *</label><AnimalPicker value={motherId} onChange={setMotherId} options={females} placeholder="Selecionar fêmea" /></div><div><label className={labelClass}>Data do parto *</label><input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} required className={inputClass} /></div><div><label className={labelClass}>Tipo de parto</label><select value={birthType} onChange={e => setBirthType(e.target.value as Birth['birth_type'])} className={inputClass}><option value="natural">Natural</option><option value="assisted">Assistido</option><option value="cesarean">Cesárea</option></select></div></div>
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-[#f2f7f3] p-3"><input type="checkbox" checked={registerCalf} onChange={e => setRegisterCalf(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-[#b9cbbf] accent-[#1f6b43] focus:ring-brand-500" /><span><span className="block text-sm font-bold text-[#24362b]">Cadastrar a cria agora</span><span className="mt-0.5 block text-xs text-[#718078]">Abra o cadastro completo da cria junto com este parto.</span></span></label>
+          </section>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
-        <div>
-          <label className={labelClass}>Mãe *</label>
-          <select value={motherId} onChange={e => setMotherId(e.target.value)} required className={inputClass}>
-            <option value="">— Selecionar fêmea —</option>
-            {females.map(a => (
-              <option key={a.id} value={a.id}>
-                {a.name ?? a.tag ?? 'Sem nome'}
-              </option>
-            ))}
-          </select>
+          {registerCalf && <><div className="pointer-events-none absolute left-1/2 top-1/2 z-10 hidden h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[#c5ddcc] bg-white text-brand-700 shadow-[0_5px_14px_rgba(32,79,53,.12)] lg:flex" title="Dados vinculados automaticamente"><ArrowRight size={19} strokeWidth={2.3} /></div><section className="rounded-2xl border border-[#cfe2d4] bg-[#f6f9f7] p-4 sm:p-5"><div className="mb-5"><p className="text-sm font-bold text-[#24362b]">Dados da cria</p><p className="mt-1 text-xs text-[#718078]">O nascimento e a mãe serão vinculados automaticamente.</p></div><div className="grid gap-4 sm:grid-cols-2"><div className="sm:col-span-2"><label className={labelClass}>Nome do animal *</label><input type="text" value={calfName} onChange={e => setCalfName(e.target.value)} className={inputClass} required placeholder="Ex.: Pintada" autoFocus /></div><div><label className={labelClass}>Sexo *</label><select value={calfSex} onChange={e => setCalfSex(e.target.value as 'M' | 'F')} className={inputClass}><option value="F">Fêmea</option><option value="M">Macho</option></select></div><div><label className={labelClass}>Raça</label><input type="text" value={calfBreed} onChange={e => setCalfBreed(e.target.value)} className={inputClass} placeholder="Ex.: Nelore" /></div><div className="sm:col-span-2"><label className={labelClass}>Pai</label><AnimalPicker value={fatherId} onChange={setFatherId} options={males} placeholder="Selecionar macho" /></div><div className="sm:col-span-2"><label className={labelClass}>Data de nascimento</label><input type="date" value={birthDate} readOnly className={`${inputClass} cursor-not-allowed text-[#748078]`} /></div></div></section></>}
         </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className={labelClass}>Data do parto *</label>
-            <input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} required className={inputClass} />
-          </div>
-          <div>
-            <label className={labelClass}>Tipo de parto</label>
-            <select value={birthType} onChange={e => setBirthType(e.target.value as Birth['birth_type'])} className={inputClass}>
-              <option value="natural">Natural</option>
-              <option value="assisted">Assistido</option>
-              <option value="cesarean">Cesárea</option>
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label className={labelClass}>Observações</label>
-          <textarea
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            rows={2}
-            className={inputClass}
-            placeholder="Intercorrências, observações..."
-          />
-        </div>
-
-        {/* Calf registration */}
-        <div className="border border-gray-200 rounded-lg p-3">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={registerCalf}
-              onChange={e => setRegisterCalf(e.target.checked)}
-              className="rounded text-brand-700"
-            />
-            <span className="text-sm font-medium text-gray-700">Cadastrar a cria agora</span>
-          </label>
-
-          {registerCalf && (
-            <div className="mt-3 space-y-3">
-              <div>
-                <div>
-                  <label className={labelClass}>Sexo da cria *</label>
-                  <select value={calfSex} onChange={e => setCalfSex(e.target.value as 'M' | 'F')} className={inputClass}>
-                    <option value="F">Fêmea</option>
-                    <option value="M">Macho</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className={labelClass}>Nome da cria *</label>
-                <input
-                  type="text"
-                  value={calfName}
-                  onChange={e => setCalfName(e.target.value)}
-                  className={inputClass}
-                  required={registerCalf}
-                  placeholder="Ex: Pintada"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {error && <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{error}</p>}
-
-        <div className="flex gap-3 pt-2">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="flex-1 border border-gray-300 text-gray-700 font-medium py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex-1 bg-brand-700 text-white font-medium py-2.5 rounded-lg hover:bg-brand-800 transition-colors disabled:opacity-60"
-          >
-            {loading ? 'Salvando...' : 'Registrar'}
-          </button>
-        </div>
+        <div><label className={labelClass}>Observações</label><textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} className={inputClass} placeholder="Intercorrências, observações ou cuidados necessários" /></div>
+        {error && <p className="rounded-xl border border-red-100 bg-red-50 px-3 py-2.5 text-sm text-red-700">{error}</p>}
+        <div className="flex flex-col-reverse gap-3 border-t border-[#e7eee9] pt-5 sm:flex-row sm:justify-end"><button type="button" onClick={() => navigate(-1)} className="rounded-xl px-5 py-2.5 text-sm font-semibold text-[#526158] hover:bg-[#f1f5f2]">Cancelar</button><button type="submit" disabled={loading} className="rounded-xl bg-brand-700 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_8px_18px_rgba(31,73,51,.18)] transition-colors hover:bg-brand-800 disabled:opacity-60">{loading ? 'Salvando...' : 'Registrar parto'}</button></div>
       </form>
     </div>
   )

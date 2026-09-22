@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
 import { Login } from './pages/Login'
+import { ResetPassword } from './pages/ResetPassword'
 import { FarmSetup } from './pages/FarmSetup'
 import { Dashboard } from './pages/Dashboard'
 import { Animals } from './pages/Animals'
@@ -18,17 +19,12 @@ function AppRoutes() {
 
   if (loading) return null
 
-  // Authenticated but no farm yet
-  if (session && !farm) {
-    return (
-      <Routes>
-        <Route path="*" element={<FarmSetup />} />
-      </Routes>
-    )
-  }
-
   return (
     <Routes>
+      <Route path="/redefinir-senha" element={<ResetPassword />} />
+      {session && !farm ? (
+        <Route path="*" element={<FarmSetup />} />
+      ) : <>
       <Route path="/login" element={<Login />} />
       <Route
         path="/"
@@ -141,6 +137,7 @@ function AppRoutes() {
         }
       />
       <Route path="*" element={<Navigate to="/" replace />} />
+      </>}
     </Routes>
   )
 }
