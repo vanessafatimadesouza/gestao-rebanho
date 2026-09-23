@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams, Link } from 'react-router-dom'
+import { useNavigate, useParams, Link, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, CirclePlus, ListChecks, Network, Pencil, Syringe, Baby, Trash2, X, PawPrint, CalendarHeart, Tag, UserRound } from 'lucide-react'
 import { PageHeader } from '../components/PageHeader'
 import { AnimalGenealogy } from '../components/AnimalGenealogy'
@@ -47,8 +47,9 @@ function ManagementCard({ icon: Icon, title, subtitle, emptyTitle, emptyText, ac
 export function AnimalDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [animal, setAnimal] = useState<Animal | null>(null)
-  const [tab, setTab] = useState<Tab>('vacinas')
+  const [tab, setTab] = useState<Tab>(() => searchParams.get('aba') === 'genealogia' ? 'genealogia' : 'vacinas')
   const [vaccinations, setVaccinations] = useState<Vaccination[]>([])
   const [births, setBirths] = useState<Birth[]>([])
   const [events, setEvents] = useState<AnimalEvent[]>([])
@@ -135,6 +136,12 @@ export function AnimalDetail() {
   if (loading) return <div className="text-center text-gray-400 py-12">Carregando...</div>
   if (!animal) return <div className="text-center text-gray-400 py-12">Animal não encontrado.</div>
 
+  function selectTab(nextTab: Tab) {
+    setTab(nextTab)
+    if (nextTab === 'genealogia') setSearchParams({ aba: 'genealogia' })
+    else setSearchParams({})
+  }
+
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [{ key: 'vacinas', label: 'Vacinação', icon: <Syringe size={14} /> }]
   if (animal.sex === 'F') tabs.push({ key: 'reproducao', label: 'Reprodução', icon: <CalendarHeart size={14} /> })
   tabs.push({ key: 'genealogia', label: 'Árvore genealógica', icon: <Network size={14} /> })
@@ -153,7 +160,7 @@ export function AnimalDetail() {
 
       {deleteError && <p className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">{deleteError}</p>}
 
-      <div className="grid items-start gap-5 lg:grid-cols-[340px_minmax(0,1fr)]">
+      <div className={`grid items-start gap-5 ${tab === 'genealogia' ? 'lg:grid-cols-[300px_minmax(0,1fr)]' : 'lg:grid-cols-[340px_minmax(0,1fr)]'}`}>
         <section className="overflow-hidden rounded-3xl border border-[#e4ece7] bg-white shadow-[0_10px_28px_rgba(22,61,38,.055)]">
           <div className="relative aspect-[1.35/1] overflow-hidden bg-brand-50"><img src={animal.image_url ?? (animal.sex === 'F' ? '/images/cattle-cow-nelore.png' : '/images/cattle-bull-white.png')} alt={animal.name ?? 'Animal'} className="h-full w-full object-cover" /><div className="absolute bottom-4 right-4 flex gap-2"><Link to={`/animais/${animal.id}/editar`} className="flex h-11 w-11 items-center justify-center rounded-full bg-white/40 text-brand-900 transition-colors hover:bg-white/60" aria-label="Editar animal"><Pencil size={18} /></Link><button onClick={() => setDeleteDialogOpen(true)} disabled={deleting} className="flex h-11 w-11 items-center justify-center rounded-full bg-white/40 text-red-700 transition-colors hover:bg-red-50/70 disabled:opacity-50" aria-label="Excluir animal"><Trash2 size={18} /></button></div></div>
           <div className="p-5"><div className="flex items-start justify-between gap-3"><div><h2 className="text-2xl font-bold tracking-tight text-[#17291e]">{animal.name ?? animal.tag ?? 'Sem nome'}</h2></div><span className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-bold ${STATUS_BADGE[animal.status]}`}><span className={`h-2.5 w-2.5 rounded-full ${STATUS_DOT[animal.status]}`} />{STATUS_LABEL[animal.status]}</span></div><div className="mt-3 flex flex-wrap gap-2"><span className="inline-flex items-center gap-1.5 rounded-lg bg-[#f3f5f8] px-2.5 py-1.5 text-[11px] font-semibold text-[#536176]"><Tag size={13} />{animal.breed ?? 'Sem raça'}</span><span className="inline-flex items-center gap-1.5 rounded-lg bg-[#f2f4f3] px-2.5 py-1.5 text-[11px] font-semibold text-[#65746d]"><UserRound size={13} />{animal.sex === 'F' ? 'Fêmea' : 'Macho'}</span></div><div className="mt-4 space-y-3 border-t border-[#e8efea] pt-4"><SideDetail icon={CalendarHeart} label="Nascimento" value={animal.birth_date ? new Date(animal.birth_date + 'T12:00:00').toLocaleDateString('pt-BR') : '—'} /><SideDetail icon={CalendarHeart} label="Idade" value={animal.birth_date ? age(animal.birth_date) : '—'} /><SideDetail icon={PawPrint} label="Mãe" value={animal.mother?.name ?? animal.mother?.tag ?? animal.mother_name ?? 'Sem nome'} /><SideDetail icon={UserRound} label="Pai / Sêmen" value={animal.father_tag ?? '—'} /></div></div>
@@ -161,7 +168,7 @@ export function AnimalDetail() {
 
         <div className="min-w-0 space-y-4">
           <nav aria-label="Seções do animal" className={`grid grid-cols-2 gap-2 rounded-3xl border border-[#e4ece7] bg-white p-2 shadow-[0_8px_22px_rgba(22,61,38,.04)] ${tabs.length === 4 ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
-            {tabs.map(t => <button key={t.key} type="button" aria-pressed={tab === t.key} onClick={() => setTab(t.key)} className={`flex min-h-11 items-center justify-center gap-1.5 rounded-2xl px-2 py-3 text-xs font-semibold transition-colors sm:gap-2 sm:px-3 sm:text-sm ${tab === t.key ? 'bg-[#e8f8ed] text-[#185d3b]' : 'text-[#526158] hover:bg-[#f4f8f5]'}`}>{t.icon}{t.label}</button>)}
+            {tabs.map(t => <button key={t.key} type="button" aria-pressed={tab === t.key} onClick={() => selectTab(t.key)} className={`flex min-h-11 items-center justify-center gap-1.5 rounded-2xl px-2 py-3 text-xs font-semibold transition-colors sm:gap-2 sm:px-3 sm:text-sm ${tab === t.key ? 'bg-[#e8f8ed] text-[#185d3b]' : 'text-[#526158] hover:bg-[#f4f8f5]'}`}>{t.icon}{t.label}</button>)}
           </nav>
           {tab === 'vacinas' && <section className="min-h-[480px] rounded-3xl border border-[#e4ece7] bg-white p-6 shadow-[0_10px_28px_rgba(22,61,38,.045)]"><div className="flex items-start justify-between gap-4"><div><h2 className="text-2xl font-bold text-[#182b20]">Vacinação</h2><p className="mt-1 text-sm text-[#7c8e83]">Registre e acompanhe todas as vacinas de {animal.name ?? 'seu animal'}.</p></div><Link to={`/vacinas/nova?animal=${animal.id}`} className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-800"><Syringe size={16} />Registrar</Link></div>{vaccinations.length === 0 ? <div className="flex min-h-[345px] flex-col items-center justify-center text-center"><span className="flex h-28 w-28 items-center justify-center rounded-full bg-[#eaf8ef] text-[#56aa7a]"><Syringe size={52} /></span><h3 className="mt-6 text-xl font-bold text-[#1d3024]">Nenhuma vacina registrada</h3><p className="mt-2 max-w-md text-sm leading-5 text-[#7d8e84]">Mantenha o histórico de vacinação sempre atualizado para garantir a saúde e o bem-estar de {animal.name ?? 'seu animal'}.</p><Link to={`/vacinas/nova?animal=${animal.id}`} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-brand-700 px-6 py-3 text-sm font-semibold text-white hover:bg-brand-800"><CirclePlus size={18} />Registrar vacina</Link></div> : <div className="mt-7 divide-y divide-[#edf2ee]"><div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 border-b border-[#dce7df] pb-3 text-xs font-bold uppercase tracking-[0.12em] text-[#61736a]"><span>Vacina</span><span>Data</span><span>Ações</span></div>{vaccinations.map(v => <div key={v.id} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 py-3 text-sm"><span className="min-w-0 font-semibold text-[#2d4135]">{v.vaccine_name}</span><span className="tabular-nums text-[#718078]">{new Date(v.date + 'T12:00:00').toLocaleDateString('pt-BR')}</span><span className="flex items-center gap-1"><Link to={`/vacinas/${v.id}/editar`} className="flex h-9 w-9 items-center justify-center rounded-lg text-brand-800 transition-colors hover:bg-brand-50" aria-label={`Editar vacina ${v.vaccine_name}`}><Pencil size={16} /></Link><button onClick={() => void handleVaccinationDelete(v)} className="flex h-9 w-9 items-center justify-center rounded-lg text-red-600 transition-colors hover:bg-red-50" aria-label={`Excluir vacina ${v.vaccine_name}`}><Trash2 size={16} /></button></span></div>)}</div>}</section>}
           {tab === 'reproducao' && <ManagementCard icon={CalendarHeart} title="Reprodução" subtitle="Acompanhe gestações e previsões de parto." emptyTitle="Nenhuma gestação registrada" emptyText="Registre a cobertura ou inseminação para acompanhar a previsão de parto." actionTo={`/reproducao/nova?animal=${animal.id}`} actionLabel="Registrar gestação" records={pregnancies.length}>{pregnancies.map(pregnancy => <div key={pregnancy.id} className="flex items-center justify-between gap-4 border-b border-[#edf2ee] py-4 text-sm last:border-0"><div><p className="font-semibold text-[#2d4135]">{pregnancy.status === 'pregnant' ? 'Gestação em acompanhamento' : pregnancy.status === 'gave_birth' ? 'Parto registrado' : 'Gestação não confirmada'}</p><p className="mt-1 text-xs text-[#718078]">Início: {new Date(pregnancy.breeding_date + 'T12:00:00').toLocaleDateString('pt-BR')}</p></div><div className="shrink-0 text-right"><p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#718078]">Previsão</p><p className="mt-1 tabular-nums font-semibold text-brand-800">{new Date(pregnancy.expected_birth_date + 'T12:00:00').toLocaleDateString('pt-BR')}</p></div></div>)}</ManagementCard>}
@@ -193,7 +200,7 @@ export function AnimalDetail() {
           {tabs.map(t => (
             <button
               key={t.key}
-              onClick={() => setTab(t.key)}
+              onClick={() => selectTab(t.key)}
               className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-medium transition-colors
                 ${tab === t.key ? 'text-brand-700 border-b-2 border-brand-700' : 'text-gray-500 hover:text-gray-700'}`}
             >

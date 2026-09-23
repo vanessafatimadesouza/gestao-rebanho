@@ -1,59 +1,71 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Pencil } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, Check, ChevronRight, GitFork, Pencil } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import type { Animal } from '../types'
 
-type GenealogyAnimal = Pick<Animal, 'id' | 'name' | 'tag' | 'breed' | 'sex' | 'image_url' | 'mother_id' | 'mother_name' | 'father_id' | 'father_tag'>
+type Relative = Pick<Animal, 'id' | 'name' | 'tag' | 'breed' | 'sex' | 'image_url' | 'mother_id' | 'mother_name' | 'father_id' | 'father_tag'>
+type Slot = { animal?: Relative; label?: string | null }
+type Tree = { mother: Slot; father: Slot; maternalGrandmother: Slot; maternalGrandfather: Slot; paternalGrandmother: Slot; paternalGrandfather: Slot }
+type Branch = 'maternal' | 'paternal'
 
-function GenderIcon({ sex, className = 'h-5 w-5' }: { sex: 'F' | 'M'; className?: string }) {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
-    {sex === 'F' ? <><circle cx="12" cy="8" r="5" /><path d="M12 13v9M8 18h8" /></> : <><circle cx="9" cy="15" r="5" /><path d="m13 11 8-8M15 3h6v6" /></>}
-  </svg>
+const fields = 'id, name, tag, breed, sex, image_url, mother_id, mother_name, father_id, father_tag'
+const emptyTree: Tree = { mother: {}, father: {}, maternalGrandmother: {}, maternalGrandfather: {}, paternalGrandmother: {}, paternalGrandfather: {} }
+const displayName = (relative: Relative) => relative.name || relative.tag || 'Sem nome'
+const examples: Record<string, { name: string; image: string }> = {
+  Mãe: { name: 'Aurora', image: '/images/cattle-cow-nelore.png' },
+  Pai: { name: 'Trovão', image: '/images/cattle-bull-white-2.png' },
+  'Avó materna': { name: 'Estrela', image: '/images/cattle-cow-brown.png' },
+  'Avô materno': { name: 'Bento', image: '/images/cattle-bull-white.png' },
+  'Avó paterna': { name: 'Safira', image: '/images/cattle-cow-spotted.png' },
+  'Avô paterno': { name: 'Imperador', image: '/images/cattle-bull-white-3.png' },
 }
 
-function animalImage(animal: Pick<Animal, 'sex' | 'image_url'> | undefined, sex: 'F' | 'M') {
-  return animal?.image_url || (sex === 'F' ? '/images/cattle-cow-nelore.png' : '/images/cattle-bull-white.png')
-}
-
-function AnimalPortrait({ animal, sex, compact = false, selected = false }: { animal?: Pick<Animal, 'sex' | 'image_url'>; sex: 'F' | 'M'; compact?: boolean; selected?: boolean }) {
-  return <span className={`block shrink-0 overflow-hidden rounded-full border-2 border-[#d9dedc] ${selected ? 'h-20 w-20 sm:h-24 sm:w-24' : compact ? 'h-10 w-10' : 'h-14 w-14'}`}>
-    <img src={animalImage(animal, animal?.sex || sex)} alt="" loading="lazy" className="h-full w-full object-cover" />
+function Portrait({ relative, illustration, large = false, compact = false, branch = 'maternal' }: { relative?: Relative; illustration?: string; large?: boolean; compact?: boolean; branch?: Branch }) {
+  const image = relative?.image_url || illustration || (relative?.sex === 'M' ? '/images/cattle-bull-white.png' : '/images/cattle-cow-nelore.png')
+  return <span className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full border-[4px] bg-white shadow-sm ${large ? 'h-24 w-24 sm:h-28 sm:w-28' : compact ? 'h-11 w-11 sm:h-12 sm:w-12' : 'h-14 w-14 sm:h-16 sm:w-16'} ${branch === 'maternal' ? 'border-[#e5f4ea] text-[#498665]' : 'border-[#f5ede3] text-[#947350]'}`}>
+    <img src={image} alt="" loading="lazy" className="h-full w-full object-cover" />
   </span>
 }
 
-function AncestorNode({ relation, animal, fallback, exampleName, sex, compact = false }: { relation: string; animal?: GenealogyAnimal; fallback?: string | null; exampleName: string; sex: 'F' | 'M'; compact?: boolean }) {
-  const name = animal?.name || animal?.tag || fallback || exampleName
-  const content = <>
-    <AnimalPortrait animal={animal} sex={sex} compact={compact} />
-    <span className="min-w-0 flex-1">
-      <span className={`block font-semibold uppercase tracking-[0.08em] text-[#6b756f] ${compact ? 'text-[10px]' : 'text-[11px]'}`}>{relation}</span>
-      <span className={`mt-1 block break-words font-semibold leading-tight text-[#26332b] ${compact ? 'text-sm sm:text-base' : 'text-lg'}`}>{name}</span>
-      {(animal?.breed || (animal ? 'Animal cadastrado' : fallback ? 'Nome informado' : null)) && <span className="mt-1 block text-xs leading-snug text-[#69736d]">{animal?.breed || (animal ? 'Animal cadastrado' : 'Nome informado')}</span>}
-    </span>
-    {animal && <ArrowRight size={16} className="shrink-0 text-[#59665e]" aria-hidden="true" />}
+function RelativeCard({ relation, slot, branch, onOpen, compact = false }: { relation: string; slot: Slot; branch: Branch; onOpen: (relative: Relative) => void; compact?: boolean }) {
+  const { animal, label } = slot
+  const example = examples[relation]
+  const name = animal ? displayName(animal) : label?.trim() || example.name
+  const maternal = branch === 'maternal'
+  const contents = <>
+    <Portrait relative={animal} illustration={example.image} branch={branch} compact={compact} />
+    <span className="min-w-0 flex-1"><span className={`inline-block rounded-full px-2 py-1 text-[9px] font-bold uppercase tracking-[0.1em] ${maternal ? 'bg-[#e7f6ec] text-[#276743]' : 'bg-[#fbf1e6] text-[#856442]'}`}>{relation}</span><span className={`mt-1 block break-words font-bold leading-snug text-[#152a32] ${compact ? 'text-sm sm:text-base' : 'text-lg sm:text-xl'}`}>{name}</span><span className="mt-0.5 block text-[11px] text-[#61747b]">{animal?.breed || (animal ? 'Cadastro vinculado' : label ? 'Nome informado' : 'Exemplo · não cadastrado')}</span></span>
+    {animal && <span className={`flex shrink-0 items-center justify-center rounded-full border border-[#d9e9e0] text-[#2c6a4a] transition-transform group-hover:translate-x-0.5 ${compact ? 'h-6 w-6' : 'h-8 w-8'}`}><ChevronRight size={compact ? 14 : 17} aria-hidden="true" /></span>}
   </>
-  const className = `flex min-h-20 items-center gap-3 rounded-xl border border-[#e4e8e5] bg-white px-3 py-3 text-left shadow-[0_6px_18px_rgba(31,41,34,.04)] ${compact ? 'min-h-[76px] gap-2.5 px-2.5' : ''} ${animal ? 'cursor-pointer transition-colors hover:border-[#b7c2ba] hover:bg-[#fafbfa] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700' : ''}`
-  return animal ? <Link to={`/animais/${animal.id}`} className={className} aria-label={`${relation}: ${name}. Ver animal`}>{content}</Link> : <div className={className}>{content}</div>
+  const className = `group flex w-full items-center gap-2 rounded-[22px] border bg-white/95 text-left shadow-[0_12px_28px_rgba(23,58,44,.05)] ${compact ? 'min-h-[86px] p-2.5' : 'min-h-[108px] p-3 sm:p-4'} ${maternal ? 'border-[#d3eadb]' : 'border-[#eadbcc]'} ${animal ? 'cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_38px_rgba(23,58,44,.12)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700' : ''}`
+  return animal ? <button type="button" onClick={() => onOpen(animal)} className={className} aria-label={`${relation}: ${name}. Explorar ascendência`}>{contents}</button> : <div className={className}>{contents}</div>
 }
 
-function BranchConnector() {
-  return <div className="relative mx-auto h-7 w-1/2" aria-hidden="true">
-    <span className="absolute left-1/2 top-0 h-3 w-px -translate-x-1/2 bg-[#bec8c1]" />
-    <span className="absolute inset-x-0 top-3 h-px bg-[#bec8c1]" />
-    <span className="absolute left-0 top-3 h-3 w-px bg-[#bec8c1]" />
-    <span className="absolute right-0 top-3 h-3 w-px bg-[#bec8c1]" />
-    <span className="absolute left-1/2 top-[9px] h-2 w-2 -translate-x-1/2 rounded-full bg-[#798b7e]" />
-  </div>
+function BranchPanel({ title, subtitle, branch, parent, grandmother, grandfather, parentRelation, grandmotherRelation, grandfatherRelation, onOpen }: {
+  title: string; subtitle: string; branch: Branch; parent: Slot; grandmother: Slot; grandfather: Slot
+  parentRelation: string; grandmotherRelation: string; grandfatherRelation: string; onOpen: (relative: Relative) => void
+}) {
+  const maternal = branch === 'maternal'
+  return <section aria-label={title} className="min-w-0">
+    <div className="mb-4 flex items-center gap-2.5"><span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-2xl ${maternal ? 'bg-[#e5f6eb] text-[#22724a]' : 'bg-[#f5eee6] text-[#8b6a45]'}`}>{maternal ? '♀' : '♂'}</span><div className="min-w-0"><h3 className="text-lg font-bold text-[#172e34]">{title}</h3><p className="text-xs text-[#647782]">{subtitle}</p></div><span className={`ml-2 hidden h-px flex-1 sm:block ${maternal ? 'bg-[#cce5d3]' : 'bg-[#ecdfd0]'}`} /></div>
+    <RelativeCard relation={parentRelation} slot={parent} branch={branch} onOpen={onOpen} />
+    <div className={`relative mx-auto hidden h-12 w-1/2 sm:block ${maternal ? 'text-[#64ae80]' : 'text-[#c49b6e]'}`} aria-hidden="true"><span className="absolute left-1/2 top-0 h-5 w-px -translate-x-1/2 bg-current" /><span className="absolute inset-x-0 top-5 h-px bg-current" /><span className="absolute left-0 top-5 h-7 w-px bg-current" /><span className="absolute right-0 top-5 h-7 w-px bg-current" /><span className="absolute left-1/2 top-3 h-4 w-4 -translate-x-1/2 rounded-full border-[3px] border-white bg-current" /></div>
+    <div className="mt-3 grid gap-2 sm:mt-0 sm:grid-cols-2"><RelativeCard relation={grandmotherRelation} slot={grandmother} branch={branch} onOpen={onOpen} compact /><RelativeCard relation={grandfatherRelation} slot={grandfather} branch={branch} onOpen={onOpen} compact /></div>
+  </section>
 }
 
 export function AnimalGenealogy({ animal }: { animal: Animal }) {
   const { farm } = useAuth()
-  const [relatives, setRelatives] = useState<Record<string, GenealogyAnimal>>({})
+  const [trail, setTrail] = useState<Relative[]>([])
+  const [tree, setTree] = useState<Tree>(emptyTree)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [retry, setRetry] = useState(0)
+  const focus: Relative = trail[trail.length - 1] ?? animal
+
+  useEffect(() => { setTrail([]) }, [animal.id])
 
   useEffect(() => {
     if (!farm) return
@@ -61,78 +73,63 @@ export function AnimalGenealogy({ animal }: { animal: Animal }) {
     const farmId = farm.id
     setLoading(true)
     setError('')
-    setRelatives({})
+    setTree(emptyTree)
 
-    async function loadRelatives() {
-      const parentIds = [animal.mother_id, animal.father_id].filter((id): id is string => Boolean(id))
-      if (parentIds.length === 0) {
-        if (!cancelled) setLoading(false)
-        return
+    async function resolveParent(id: string | null, text: string | null, sex: 'F' | 'M'): Promise<Slot> {
+      const label = text?.trim() || null
+      if (id) {
+        const { data, error: queryError } = await supabase.from('animals').select(fields).eq('farm_id', farmId).eq('id', id).maybeSingle()
+        if (queryError) throw queryError
+        return { animal: (data as Relative | null) ?? undefined, label }
       }
-      const parents = await supabase.from('animals').select('id, name, tag, breed, sex, image_url, mother_id, mother_name, father_id, father_tag').eq('farm_id', farmId).in('id', parentIds)
-      if (cancelled) return
-      if (parents.error) {
-        setError('Não foi possível carregar os parentes. Tente novamente.')
-        setLoading(false)
-        return
-      }
-      const parentRows = (parents.data ?? []) as GenealogyAnimal[]
-      const grandparentIds = [...new Set(parentRows.flatMap(parent => [parent.mother_id, parent.father_id]).filter((id): id is string => Boolean(id)))].filter(id => !parentIds.includes(id))
-      let grandparentRows: GenealogyAnimal[] = []
-      if (grandparentIds.length) {
-        const grandparents = await supabase.from('animals').select('id, name, tag, breed, sex, image_url, mother_id, mother_name, father_id, father_tag').eq('farm_id', farmId).in('id', grandparentIds)
-        if (cancelled) return
-        if (grandparents.error) {
-          setError('Não foi possível carregar os avós. Tente novamente.')
-          setLoading(false)
-          return
-        }
-        grandparentRows = (grandparents.data ?? []) as GenealogyAnimal[]
-      }
-      setRelatives(Object.fromEntries([...parentRows, ...grandparentRows].map(relative => [relative.id, relative])))
-      setLoading(false)
+      if (!label) return {}
+      const [byName, byTag] = await Promise.all([
+        supabase.from('animals').select(fields).eq('farm_id', farmId).eq('sex', sex).eq('name', label).limit(2),
+        supabase.from('animals').select(fields).eq('farm_id', farmId).eq('sex', sex).eq('tag', label).limit(2),
+      ])
+      if (byName.error || byTag.error) throw byName.error || byTag.error
+      const matches = [...(byName.data ?? []), ...(byTag.data ?? [])].filter((candidate, index, all) => all.findIndex(item => item.id === candidate.id) === index && candidate.id !== focus.id)
+      return { animal: matches.length === 1 ? matches[0] as Relative : undefined, label }
     }
 
-    void loadRelatives()
+    async function loadTree() {
+      try {
+        const [mother, father] = await Promise.all([resolveParent(focus.mother_id, focus.mother_name, 'F'), resolveParent(focus.father_id, focus.father_tag, 'M')])
+        if (cancelled) return
+        const [maternalGrandmother, maternalGrandfather, paternalGrandmother, paternalGrandfather] = await Promise.all([
+          mother.animal ? resolveParent(mother.animal.mother_id, mother.animal.mother_name, 'F') : {},
+          mother.animal ? resolveParent(mother.animal.father_id, mother.animal.father_tag, 'M') : {},
+          father.animal ? resolveParent(father.animal.mother_id, father.animal.mother_name, 'F') : {},
+          father.animal ? resolveParent(father.animal.father_id, father.animal.father_tag, 'M') : {},
+        ])
+        if (!cancelled) setTree({ mother, father, maternalGrandmother, maternalGrandfather, paternalGrandmother, paternalGrandfather })
+      } catch {
+        if (!cancelled) setError('Não foi possível carregar o parentesco. Tente novamente.')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    void loadTree()
     return () => { cancelled = true }
-  }, [animal.id, animal.mother_id, animal.father_id, farm?.id, retry])
+  }, [focus.id, focus.mother_id, focus.mother_name, focus.father_id, focus.father_tag, farm?.id, retry])
 
-  const mother = animal.mother_id ? relatives[animal.mother_id] : undefined
-  const father = animal.father_id ? relatives[animal.father_id] : undefined
-  const maternalGrandmother = mother?.mother_id ? relatives[mother.mother_id] : undefined
-  const maternalGrandfather = mother?.father_id ? relatives[mother.father_id] : undefined
-  const paternalGrandmother = father?.mother_id ? relatives[father.mother_id] : undefined
-  const paternalGrandfather = father?.father_id ? relatives[father.father_id] : undefined
+  const linkedCount = Object.values(tree).filter(slot => slot.animal).length
+  const informedCount = Object.values(tree).filter(slot => slot.label && !slot.animal).length
 
-  return <section className="relative overflow-hidden rounded-3xl border border-[#e4ece7] bg-white p-5 shadow-[0_10px_28px_rgba(22,61,38,.045)] sm:p-6">
-    <div className="pointer-events-none absolute inset-x-0 top-0 h-52 overflow-hidden" aria-hidden="true"><img src="/images/dashboard-herd-hero.png" alt="" className="h-full w-full object-cover object-center opacity-[0.055]" /><div className="absolute inset-0 bg-gradient-to-b from-white/20 to-white" /></div>
-    <div className="relative flex flex-wrap items-start justify-between gap-3">
-      <div><p className="page-kicker">Parentesco · 3 gerações</p><h2 className="mt-1 text-xl font-bold text-[#1d3024]">Árvore genealógica</h2><p className="mt-1 text-sm text-[#526158]">Acompanhe as linhagens materna e paterna deste animal.</p></div>
-      <Link to={`/animais/${animal.id}/editar`} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-brand-200 px-3 text-sm font-semibold text-brand-800 transition-colors hover:bg-brand-50"><Pencil size={16} aria-hidden="true" />Completar parentesco</Link>
+  return <section className="relative isolate overflow-hidden rounded-[32px] border border-[#e2eee8] bg-white shadow-[0_18px_48px_rgba(22,61,38,.055)]">
+    <div className="pointer-events-none absolute inset-x-0 top-28 h-[420px] overflow-hidden" aria-hidden="true"><img src="/images/dashboard-herd-hero.png" alt="" className="h-full w-full object-cover object-center opacity-[0.075]" /><div className="absolute inset-0 bg-gradient-to-b from-white/75 via-white/60 to-white" /></div>
+    <div className="relative px-5 pb-7 pt-7 sm:px-7 sm:pt-8 lg:px-8">
+      <div className="flex flex-wrap items-start justify-between gap-4"><div><span className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#24583c]"><GitFork size={18} strokeWidth={1.8} aria-hidden="true" />Parentesco · 3 gerações</span><h2 className="mt-3 text-3xl font-bold tracking-[-0.04em] text-[#142b31] sm:text-4xl">Árvore genealógica</h2><p className="mt-1.5 text-sm text-[#5b6c7a]">Acompanhe as linhagens materna e paterna deste animal.</p></div><Link to={`/animais/${focus.id}/editar`} className="inline-flex min-h-11 items-center gap-2 rounded-2xl border border-[#bddaca] bg-white/90 px-4 text-sm font-semibold text-[#173d2b] shadow-sm transition-colors hover:bg-[#f2faf4]"><Pencil size={17} aria-hidden="true" />Completar parentesco</Link></div>
+      {trail.length > 0 && <nav aria-label="Caminho da árvore" className="mt-5 flex flex-wrap items-center gap-1.5 text-xs text-[#5c7262]"><button type="button" onClick={() => setTrail([])} className="rounded-lg px-2 py-1.5 font-semibold hover:bg-[#e8f3eb]">{displayName(animal)}</button>{trail.map((relative, index) => <span key={`${relative.id}-${index}`} className="inline-flex items-center gap-1.5"><ChevronRight size={14} aria-hidden="true" /><button type="button" onClick={() => setTrail(current => current.slice(0, index + 1))} aria-current={index === trail.length - 1 ? 'page' : undefined} className={`rounded-lg px-2 py-1.5 ${index === trail.length - 1 ? 'bg-[#e5f3e8] font-bold text-[#205b39]' : 'font-semibold hover:bg-[#e8f3eb]'}`}>{displayName(relative)}</button></span>)}</nav>}
+      {trail.length > 0 && <button type="button" onClick={() => setTrail(current => current.slice(0, -1))} className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-xl px-2 text-sm font-semibold text-[#35684a] hover:bg-[#f1f7f2]"><ArrowLeft size={16} aria-hidden="true" />Voltar uma geração</button>}
+
+      <div className="mx-auto mt-7 flex max-w-[500px] items-center gap-3 rounded-[32px] border border-[#d6e9de] bg-white/90 p-3 shadow-[0_18px_46px_rgba(29,83,52,.095)] backdrop-blur-sm sm:gap-4"><Portrait relative={focus} large /><div className="min-w-0"><span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#26563a]">Animal selecionado</span><h3 className="mt-1 break-words text-xl font-bold leading-tight text-[#142b31] sm:text-2xl">{displayName(focus)}</h3><p className="mt-1 text-sm text-[#586b78]">{focus.breed || (focus.sex === 'F' ? 'Fêmea' : 'Macho')}</p><div className="mt-2 flex flex-wrap gap-1.5"><span className="rounded-full border border-[#d5e9dd] bg-[#f7fcf8] px-2.5 py-1 text-[11px] font-semibold text-[#286144]">{focus.sex === 'F' ? '♀ Fêmea' : '♂ Macho'}</span>{focus.tag && <span className="rounded-full border border-[#d5e9dd] bg-[#f7fcf8] px-2.5 py-1 text-[11px] font-semibold text-[#286144]">{focus.tag}</span>}</div>{trail.length > 0 && <Link to={`/animais/${focus.id}?aba=genealogia`} className="mt-2 inline-flex min-h-9 items-center gap-1 text-xs font-bold text-[#246a44] hover:underline">Abrir ficha deste animal <ArrowUpRight size={14} aria-hidden="true" /></Link>}</div></div>
+
+      {loading ? <div role="status" className="py-16 text-center text-sm text-[#597264]">Carregando parentesco...</div> : error ? <div role="alert" className="py-12 text-center"><p className="text-sm text-red-700">{error}</p><button type="button" onClick={() => setRetry(value => value + 1)} className="mt-3 min-h-11 rounded-xl px-4 text-sm font-semibold text-brand-800 hover:bg-brand-50">Tentar novamente</button></div> : <>
+        <div className="relative mx-auto hidden h-12 w-1/2 xl:block" aria-hidden="true"><span className="absolute left-1/2 top-0 h-6 w-px -translate-x-1/2 bg-[#7bb593]" /><span className="absolute inset-x-0 top-6 h-px bg-[#6bab84]" /><span className="absolute left-0 top-6 h-6 w-px bg-[#6bab84]" /><span className="absolute right-0 top-6 h-6 w-px bg-[#b99b7c]" /><span className="absolute left-1/2 top-[15px] h-5 w-5 -translate-x-1/2 rounded-full border-[5px] border-white bg-[#17613d] shadow-sm" /></div>
+        <div className="mt-7 grid gap-8 xl:mt-0 xl:grid-cols-2 xl:gap-5"><BranchPanel title="Linhagem materna" subtitle="Mãe e avós maternos" branch="maternal" parent={tree.mother} grandmother={tree.maternalGrandmother} grandfather={tree.maternalGrandfather} parentRelation="Mãe" grandmotherRelation="Avó materna" grandfatherRelation="Avô materno" onOpen={relative => setTrail(current => [...current, relative])} /><BranchPanel title="Linhagem paterna" subtitle="Pai e avós paternos" branch="paternal" parent={tree.father} grandmother={tree.paternalGrandmother} grandfather={tree.paternalGrandfather} parentRelation="Pai" grandmotherRelation="Avó paterna" grandfatherRelation="Avô paterno" onOpen={relative => setTrail(current => [...current, relative])} /></div>
+        <div className="mt-9 flex flex-wrap items-center justify-between gap-3 border-t border-[#e5eee9] pt-5 text-xs text-[#64766a]"><p><span className="inline-flex items-center gap-1 font-bold text-[#2e7850]"><Check size={14} aria-hidden="true" />{linkedCount} de 6 vinculados</span>{informedCount > 0 && <span> · {informedCount} {informedCount === 1 ? 'nome informado' : 'nomes informados'}</span>}</p><p>Nomes de exemplo e fotos sem cadastro são ilustrativos; apenas parentes vinculados abrem outras gerações.</p></div>
+      </>}
     </div>
-
-    {loading ? <div role="status" className="relative py-16 text-center text-sm text-[#526158]">Carregando árvore genealógica...</div> : error ? <div role="alert" className="relative py-12 text-center"><p className="text-sm text-red-700">{error}</p><button type="button" onClick={() => setRetry(value => value + 1)} className="mt-3 min-h-11 rounded-xl px-4 text-sm font-semibold text-brand-800 hover:bg-brand-50">Tentar novamente</button></div> : <div className="relative">
-      <div className="mx-auto mt-7 flex max-w-md items-center gap-4 rounded-2xl border border-[#dce3de] bg-[#f7f9f7]/95 p-4 shadow-[0_10px_28px_rgba(31,41,34,.06)] sm:gap-5 sm:p-5">
-        <AnimalPortrait animal={animal} sex={animal.sex} selected />
-        <div className="min-w-0"><p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#68756d]">Animal selecionado</p><p className="mt-1 break-words text-2xl font-semibold leading-tight text-[#26352b]">{animal.name || animal.tag || 'Sem nome'}</p>{animal.breed && <p className="mt-0.5 text-sm text-[#5b6960]">{animal.breed}</p>}<div className="mt-2 flex flex-wrap gap-1.5"><span className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-medium text-[#435149]"><GenderIcon sex={animal.sex} className="h-3.5 w-3.5" />{animal.sex === 'F' ? 'Fêmea' : 'Macho'}</span>{animal.tag && <span className="rounded-md bg-white px-2 py-1 text-xs font-medium text-[#435149]">{animal.tag}</span>}</div></div>
-      </div>
-      <div className="mx-auto h-5 w-px bg-[#b8c5bb] lg:h-0" aria-hidden="true" />
-      <div className="relative mx-auto hidden h-10 w-1/2 lg:block" aria-hidden="true"><span className="absolute left-1/2 top-0 h-5 w-px -translate-x-1/2 bg-[#b8c5bb]" /><span className="absolute inset-x-0 top-5 h-px bg-[#b8c5bb]" /><span className="absolute left-0 top-5 h-5 w-px bg-[#b8c5bb]" /><span className="absolute right-0 top-5 h-5 w-px bg-[#b8c5bb]" /><span className="absolute left-1/2 top-4 h-2 w-2 -translate-x-1/2 rounded-full border-2 border-[#718b78] bg-white" /></div>
-      <div className="grid gap-4 lg:grid-cols-2 lg:gap-5">
-        <div className="min-w-0 rounded-2xl border border-[#edf0ee] bg-[#fcfdfc]/95 p-3.5 sm:p-4">
-          <div className="mb-3 flex items-center gap-3 px-1 py-1"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f1f3f1] text-[#526159]"><GenderIcon sex="F" className="h-5 w-5" /></span><div className="min-w-0 flex-1"><h3 className="text-base font-semibold text-[#334139]">Linhagem materna</h3><p className="text-xs text-[#707b74]">Mãe e avós maternos</p></div></div>
-          <AncestorNode relation="Mãe" animal={mother} fallback={animal.mother_name} exampleName="Aurora" sex="F" />
-          <BranchConnector />
-          <div className="grid grid-cols-2 gap-2.5"><AncestorNode relation="Avó materna" animal={maternalGrandmother} fallback={mother?.mother_name} exampleName="Estrela" sex="F" compact /><AncestorNode relation="Avô materno" animal={maternalGrandfather} fallback={mother?.father_tag} exampleName="Bento" sex="M" compact /></div>
-        </div>
-        <div className="min-w-0 rounded-2xl border border-[#edf0ee] bg-[#fcfdfc]/95 p-3.5 sm:p-4">
-          <div className="mb-3 flex items-center gap-3 px-1 py-1"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f1f3f1] text-[#526159]"><GenderIcon sex="M" className="h-5 w-5" /></span><div className="min-w-0 flex-1"><h3 className="text-base font-semibold text-[#334139]">Linhagem paterna</h3><p className="text-xs text-[#707b74]">Pai e avós paternos</p></div></div>
-          <AncestorNode relation="Pai" animal={father} fallback={animal.father_tag} exampleName="Trovão" sex="M" />
-          <BranchConnector />
-          <div className="grid grid-cols-2 gap-2.5"><AncestorNode relation="Avó paterna" animal={paternalGrandmother} fallback={father?.mother_name} exampleName="Safira" sex="F" compact /><AncestorNode relation="Avô paterno" animal={paternalGrandfather} fallback={father?.father_tag} exampleName="Imperador" sex="M" compact /></div>
-        </div>
-      </div>
-      <p className="mt-5 text-xs leading-5 text-[#617168]">Os nomes indicados como exemplo mostram como a árvore ficará após o cadastro. Os vínculos reais vêm dos animais registrados.</p>
-    </div>}
   </section>
 }

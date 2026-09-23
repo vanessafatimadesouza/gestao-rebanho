@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, LogOut, Plus, Sprout } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Plus, Sprout } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import type { Farm } from '../types'
 
@@ -22,12 +22,13 @@ export function FarmSelection() {
   return (
     <main className="min-h-dvh bg-[#f5faf6] px-4 py-6 sm:px-8 sm:py-10">
       <div className="mx-auto max-w-5xl">
-        <header className="flex flex-wrap items-center justify-between gap-4">
+        <header>
           <img src="/brand/manejo-logo-transparent.png" alt="Manejo — Gestão pecuária" width="2072" height="759" className="h-auto w-[170px]" />
-          <button type="button" onClick={() => void leave()} className="inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-brand-800 transition-colors hover:bg-brand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"><LogOut size={17} aria-hidden="true" />Sair</button>
         </header>
 
-        <div className="mt-12 max-w-2xl sm:mt-16">
+        <button type="button" onClick={() => void leave()} className="mt-7 inline-flex min-h-11 items-center gap-2 rounded-xl px-0 text-sm font-semibold text-brand-800 transition-colors hover:bg-brand-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"><ArrowLeft size={17} aria-hidden="true" />Voltar</button>
+
+        <div className="mt-8 max-w-2xl sm:mt-10">
           <p className="page-kicker">Olá, {firstName}</p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-brand-900 sm:text-4xl">Escolha sua fazenda</h1>
           <p className="mt-3 text-base leading-relaxed text-[#526158]">Selecione uma fazenda para acessar o painel de manejo ou adicione uma nova.</p>
