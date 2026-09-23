@@ -1,13 +1,14 @@
 import { useState, FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { Farm } from '../types'
+import { Sprout } from 'lucide-react'
 
 type Mode = 'create' | 'join'
 
 export function FarmSetup() {
-  const { user, setFarm } = useAuth()
+  const { user, selectFarm } = useAuth()
   const navigate = useNavigate()
   const [mode, setMode] = useState<Mode>('create')
   const [farmName, setFarmName] = useState('')
@@ -21,13 +22,12 @@ export function FarmSetup() {
     setError('')
     setLoading(true)
 
-    const { data: farm, error: farmErr } = await supabase
+    const farmId = crypto.randomUUID()
+    const { error: farmErr } = await supabase
       .from('farms')
-      .insert({ name: farmName.trim(), created_by: user.id })
-      .select()
-      .single()
+      .insert({ id: farmId, name: farmName.trim(), created_by: user.id })
 
-    if (farmErr || !farm) {
+    if (farmErr) {
       setError(farmErr?.message ?? 'Erro ao criar fazenda')
       setLoading(false)
       return
@@ -35,7 +35,7 @@ export function FarmSetup() {
 
     const { error: memberErr } = await supabase
       .from('farm_members')
-      .insert({ farm_id: farm.id, user_id: user.id, role: 'owner' })
+      .insert({ farm_id: farmId, user_id: user.id, role: 'owner' })
 
     if (memberErr) {
       setError(memberErr.message)
@@ -43,8 +43,14 @@ export function FarmSetup() {
       return
     }
 
-    setFarm(farm as Farm)
-    navigate('/')
+    const { data: farm, error: loadError } = await supabase.from('farms').select('*').eq('id', farmId).single()
+    if (loadError || !farm) {
+      setError('A fazenda foi criada, mas não pôde ser carregada. Volte à lista e tente novamente.')
+      setLoading(false)
+      return
+    }
+    selectFarm(farm as Farm)
+    navigate('/', { replace: true })
   }
 
   async function handleJoin(e: FormEvent) {
@@ -55,38 +61,38 @@ export function FarmSetup() {
 
     const code = farmCode.trim()
 
-    const { data: farm, error: farmErr } = await supabase
-      .from('farms')
-      .select()
-      .eq('id', code)
-      .single()
-
-    if (farmErr || !farm) {
-      setError('Fazenda não encontrada. Verifique o código.')
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(code)) {
+      setError('Código inválido. Confira o código completo da fazenda.')
       setLoading(false)
       return
     }
 
     const { error: memberErr } = await supabase
       .from('farm_members')
-      .insert({ farm_id: farm.id, user_id: user.id, role: 'member' })
+      .insert({ farm_id: code, user_id: user.id, role: 'member' })
 
     if (memberErr) {
-      setError(memberErr.code === '23505' ? 'Você já é membro desta fazenda.' : memberErr.message)
+      setError(memberErr.code === '23505' ? 'Você já é membro desta fazenda.' : memberErr.code === '23503' ? 'Fazenda não encontrada. Verifique o código.' : memberErr.message)
       setLoading(false)
       return
     }
 
-    setFarm(farm as Farm)
-    navigate('/')
+    const { data: farm, error: loadError } = await supabase.from('farms').select('*').eq('id', code).single()
+    if (loadError || !farm) {
+      setError('Você entrou na fazenda, mas ela não pôde ser carregada. Volte à lista e tente novamente.')
+      setLoading(false)
+      return
+    }
+    selectFarm(farm as Farm)
+    navigate('/', { replace: true })
   }
 
   return (
     <div className="min-h-screen bg-[#edf5ef] flex items-center justify-center p-5">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <span className="text-6xl">🏡</span>
-          <h1 className="mt-3 text-2xl font-bold text-brand-900">Configurar fazenda</h1>
+          <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-700 text-[#d8e97a] shadow-sm"><Sprout size={30} aria-hidden="true" /></span>
+          <h1 className="mt-3 text-2xl font-bold text-brand-900">Adicionar fazenda</h1>
           <p className="text-brand-700 text-sm mt-1">Crie uma fazenda ou entre em uma existente</p>
         </div>
 
@@ -111,8 +117,9 @@ export function FarmSetup() {
           {mode === 'create' ? (
             <form onSubmit={handleCreate} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nome da fazenda</label>
+                <label htmlFor="farm-name" className="block text-sm font-medium text-gray-700 mb-1">Nome da fazenda</label>
                 <input
+                  id="farm-name"
                   type="text"
                   value={farmName}
                   onChange={e => setFarmName(e.target.value)}
@@ -121,7 +128,7 @@ export function FarmSetup() {
                   placeholder="Ex: Fazenda Santa Cruz"
                 />
               </div>
-              {error && <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+              {error && <p role="alert" className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{error}</p>}
               <button
                 type="submit"
                 disabled={loading}
@@ -133,8 +140,9 @@ export function FarmSetup() {
           ) : (
             <form onSubmit={handleJoin} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Código da fazenda</label>
+                <label htmlFor="farm-code" className="block text-sm font-medium text-gray-700 mb-1">Código da fazenda</label>
                 <input
+                  id="farm-code"
                   type="text"
                   value={farmCode}
                   onChange={e => setFarmCode(e.target.value)}
@@ -146,7 +154,7 @@ export function FarmSetup() {
                   Peça ao dono da fazenda para compartilhar o código dela.
                 </p>
               </div>
-              {error && <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+              {error && <p role="alert" className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{error}</p>}
               <button
                 type="submit"
                 disabled={loading}
@@ -157,6 +165,7 @@ export function FarmSetup() {
             </form>
           )}
         </div>
+        <Link to="/fazendas" className="mt-5 flex min-h-11 items-center justify-center rounded-xl text-sm font-semibold text-brand-800 hover:bg-brand-50">Voltar às fazendas</Link>
       </div>
     </div>
   )

@@ -1,18 +1,23 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { AlertTriangle, ArrowLeft, CirclePlus, ListChecks, Pencil, Syringe, Baby, Trash2, X, PawPrint, CalendarHeart, Tag, UserRound } from 'lucide-react'
+import { AlertTriangle, CirclePlus, ListChecks, Network, Pencil, Syringe, Baby, Trash2, X, PawPrint, CalendarHeart, Tag, UserRound } from 'lucide-react'
+import { PageHeader } from '../components/PageHeader'
+import { AnimalGenealogy } from '../components/AnimalGenealogy'
 import { supabase } from '../lib/supabase'
 import { Animal, Vaccination, Birth, AnimalEvent, Pregnancy } from '../types'
 
-type Tab = 'vacinas' | 'partos' | 'eventos' | 'reproducao'
+type Tab = 'vacinas' | 'partos' | 'eventos' | 'reproducao' | 'genealogia'
 
-const STATUS_COLOR: Record<Animal['status'], string> = {
-  active: 'bg-green-100 text-green-800',
-  sold: 'bg-blue-100 text-blue-800',
-  dead: 'bg-gray-100 text-gray-600',
-}
 const STATUS_LABEL: Record<Animal['status'], string> = {
   active: 'Ativo', sold: 'Vendido', dead: 'Morto',
+}
+const STATUS_BADGE: Record<Animal['status'], string> = {
+  active: 'bg-[#e2f8eb] text-[#17623c]',
+  sold: 'bg-blue-50 text-blue-800',
+  dead: 'bg-gray-100 text-gray-700',
+}
+const STATUS_DOT: Record<Animal['status'], string> = {
+  active: 'bg-[#43cf78]', sold: 'bg-blue-500', dead: 'bg-gray-500',
 }
 const EVENT_LABEL: Record<AnimalEvent['event_type'], string> = { weight: 'Pesagem', treatment: 'Tratamento', sale: 'Venda', purchase: 'Compra', other: 'Outro' }
 
@@ -36,7 +41,7 @@ function SideDetail({ icon: Icon, label, value }: { icon: typeof CalendarHeart; 
 }
 
 function ManagementCard({ icon: Icon, title, subtitle, emptyTitle, emptyText, actionTo, actionLabel, records, children }: { icon: typeof Syringe; title: string; subtitle: string; emptyTitle: string; emptyText: string; actionTo: string; actionLabel: string; records: number; children: React.ReactNode }) {
-  return <section className="min-h-[330px] rounded-3xl border border-[#e4ece7] bg-white p-6 shadow-[0_10px_28px_rgba(22,61,38,.045)]"><div className="flex items-center gap-4"><span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-[#edf8f0] text-[#205b3d]"><Icon size={27} /></span><div><h2 className="text-lg font-bold text-[#1d3024]">{title}</h2><p className="mt-1 text-sm text-[#7d8c83]">{subtitle}</p></div></div>{records > 0 ? <div className="mt-6">{children}</div> : <div className="flex min-h-[205px] flex-col items-center justify-center px-8 text-center"><span className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f0f8f2] text-[#95b7a1]"><CirclePlus size={31} /></span><h3 className="mt-5 text-base font-bold text-[#25372b]">{emptyTitle}</h3><p className="mt-1 max-w-sm text-sm leading-5 text-[#809087]">{emptyText}</p><Link to={actionTo} className="mt-5 inline-flex items-center gap-2 rounded-xl border border-[#1d6a43] px-5 py-3 text-sm font-semibold text-[#1d6040] transition-colors hover:bg-brand-50"><CirclePlus size={17} />{actionLabel}</Link></div>}</section>
+  return <section className="min-h-[330px] rounded-3xl border border-[#e4ece7] bg-white p-5 shadow-[0_10px_28px_rgba(22,61,38,.045)] sm:p-6"><div className="flex flex-wrap items-center justify-between gap-4"><div className="flex min-w-0 items-center gap-4"><span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#edf8f0] text-[#205b3d]"><Icon size={25} /></span><div><h2 className="text-lg font-bold text-[#1d3024]">{title}</h2><p className="mt-1 text-sm text-[#526158]">{subtitle}</p></div></div>{records > 0 && <Link to={actionTo} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-semibold text-white hover:bg-brand-800"><CirclePlus size={17} aria-hidden="true" />{actionLabel}</Link>}</div>{records > 0 ? <div className="mt-6">{children}</div> : <div className="flex min-h-[205px] flex-col items-center justify-center px-4 text-center"><span className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f0f8f2] text-[#95b7a1]"><CirclePlus size={31} /></span><h3 className="mt-5 text-base font-bold text-[#25372b]">{emptyTitle}</h3><p className="mt-1 max-w-sm text-sm leading-5 text-[#526158]">{emptyText}</p><Link to={actionTo} className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#1d6a43] px-5 text-sm font-semibold text-[#1d6040] transition-colors hover:bg-brand-50"><CirclePlus size={17} />{actionLabel}</Link></div>}</section>
 }
 
 export function AnimalDetail() {
@@ -46,7 +51,7 @@ export function AnimalDetail() {
   const [tab, setTab] = useState<Tab>('vacinas')
   const [vaccinations, setVaccinations] = useState<Vaccination[]>([])
   const [births, setBirths] = useState<Birth[]>([])
-  const [events] = useState<AnimalEvent[]>([])
+  const [events, setEvents] = useState<AnimalEvent[]>([])
   const [pregnancies, setPregnancies] = useState<Pregnancy[]>([])
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(false)
@@ -54,7 +59,10 @@ export function AnimalDetail() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   useEffect(() => {
-    if (id) loadAnimal(id)
+    if (id) {
+      setLoading(true)
+      loadAnimal(id)
+    }
   }, [id])
 
   useEffect(() => {
@@ -62,6 +70,7 @@ export function AnimalDetail() {
     loadVaccinations(id)
     loadPregnancies(id)
     loadBirths(id)
+    loadEvents(id)
   }, [id])
 
   async function loadAnimal(animalId: string) {
@@ -111,37 +120,53 @@ export function AnimalDetail() {
     navigate('/animais')
   }
 
+  async function loadEvents(animalId: string) {
+    const { data } = await supabase.from('events').select('*').eq('animal_id', animalId).order('date', { ascending: false })
+    if (data) setEvents(data as AnimalEvent[])
+  }
+
+  async function handleVaccinationDelete(vaccination: Vaccination) {
+    if (!window.confirm(`Excluir o registro da vacina “${vaccination.vaccine_name}”?`)) return
+    const { error } = await supabase.from('vaccinations').delete().eq('id', vaccination.id)
+    if (error) { setDeleteError(`Não foi possível excluir a vacina: ${error.message}`); return }
+    setVaccinations(current => current.filter(item => item.id !== vaccination.id))
+  }
+
   if (loading) return <div className="text-center text-gray-400 py-12">Carregando...</div>
   if (!animal) return <div className="text-center text-gray-400 py-12">Animal não encontrado.</div>
 
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [{ key: 'vacinas', label: 'Vacinação', icon: <Syringe size={14} /> }]
+  if (animal.sex === 'F') tabs.push({ key: 'reproducao', label: 'Reprodução', icon: <CalendarHeart size={14} /> })
+  tabs.push({ key: 'genealogia', label: 'Árvore genealógica', icon: <Network size={14} /> })
   tabs.push({ key: 'eventos', label: 'Histórico', icon: <ListChecks size={14} /> })
+
+  const historyEntries = [
+    ...vaccinations.map(v => ({ id: `v-${v.id}`, date: v.date, title: v.vaccine_name, category: 'Vacinação' })),
+    ...births.map(b => ({ id: `b-${b.id}`, date: b.birth_date, title: 'Parto registrado', category: 'Reprodução' })),
+    ...pregnancies.map(p => ({ id: `p-${p.id}`, date: p.breeding_date, title: 'Gestação registrada', category: 'Reprodução' })),
+    ...events.map(e => ({ id: `e-${e.id}`, date: e.date, title: EVENT_LABEL[e.event_type], category: 'Manejo' })),
+  ].sort((a, b) => b.date.localeCompare(a.date))
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <button onClick={() => navigate(-1)} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#e4ece7] bg-white text-[#27523b] shadow-[0_6px_16px_rgba(24,62,39,.04)] transition-colors hover:bg-brand-50"><ArrowLeft size={21} /></button>
-        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#e4f4e9] text-brand-800"><PawPrint size={27} /></span>
-        <div className="min-w-0 flex-1"><h1 className="truncate text-2xl font-bold tracking-tight text-[#17291e]">{animal.name ?? animal.tag ?? 'Sem nome'}</h1></div>
-        <span className={`hidden items-center gap-2 rounded-full px-4 py-2 text-sm font-bold sm:inline-flex ${STATUS_COLOR[animal.status]}`}><span className="h-2.5 w-2.5 rounded-full bg-[#43d47a]" />{STATUS_LABEL[animal.status]}</span>
-        <div className="flex items-center gap-2"><Link to={`/animais/${animal.id}/editar`} className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#e4ece7] bg-white text-brand-800 transition-colors hover:bg-brand-50" aria-label="Editar animal"><Pencil size={19} /></Link><button onClick={() => setDeleteDialogOpen(true)} disabled={deleting} className="flex h-12 w-12 items-center justify-center rounded-2xl border border-red-100 bg-[#fff8f7] text-red-500 transition-colors hover:bg-red-50 disabled:opacity-50" aria-label="Excluir animal"><Trash2 size={19} /></button></div>
-      </div>
+      <PageHeader backTo="/animais" kicker="Rebanho" title="Animal" />
 
       {deleteError && <p className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">{deleteError}</p>}
 
       <div className="grid items-start gap-5 lg:grid-cols-[340px_minmax(0,1fr)]">
         <section className="overflow-hidden rounded-3xl border border-[#e4ece7] bg-white shadow-[0_10px_28px_rgba(22,61,38,.055)]">
-          <div className="relative aspect-[1.12/1] overflow-hidden bg-brand-50"><img src={animal.image_url ?? (animal.sex === 'F' ? '/images/cattle-cow-nelore.png' : '/images/cattle-bull-white.png')} alt={animal.name ?? 'Animal'} className="h-full w-full object-cover" /><span className="absolute bottom-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-[#173f2a]/85 text-white"><PawPrint size={18} /></span></div>
-          <div className="p-5"><div className="flex items-start justify-between gap-3"><div><h2 className="text-2xl font-bold tracking-tight text-[#17291e]">{animal.name ?? animal.tag ?? 'Sem nome'}</h2></div><span className="inline-flex items-center gap-2 rounded-full bg-[#e2f8eb] px-3 py-2 text-xs font-bold text-[#17623c]"><span className="h-2.5 w-2.5 rounded-full bg-[#43cf78]" />{STATUS_LABEL[animal.status]}</span></div><div className="mt-3 flex flex-wrap gap-2"><span className="inline-flex items-center gap-1.5 rounded-lg bg-[#f3f5f8] px-2.5 py-1.5 text-[11px] font-semibold text-[#536176]"><Tag size={13} />{animal.breed ?? 'Sem raça'}</span><span className="inline-flex items-center gap-1.5 rounded-lg bg-[#f2f4f3] px-2.5 py-1.5 text-[11px] font-semibold text-[#65746d]"><UserRound size={13} />{animal.sex === 'F' ? 'Fêmea' : 'Macho'}</span></div><div className="mt-4 space-y-3 border-t border-[#e8efea] pt-4"><SideDetail icon={CalendarHeart} label="Nascimento" value={animal.birth_date ? new Date(animal.birth_date + 'T12:00:00').toLocaleDateString('pt-BR') : '—'} /><SideDetail icon={CalendarHeart} label="Idade" value={animal.birth_date ? age(animal.birth_date) : '—'} /><SideDetail icon={PawPrint} label="Mãe" value={animal.mother?.name ?? animal.mother?.tag ?? animal.mother_name ?? 'Sem nome'} /><SideDetail icon={Syringe} label="Pai / Sêmen" value={animal.father_tag ?? '—'} /></div></div>
+          <div className="relative aspect-[1.35/1] overflow-hidden bg-brand-50"><img src={animal.image_url ?? (animal.sex === 'F' ? '/images/cattle-cow-nelore.png' : '/images/cattle-bull-white.png')} alt={animal.name ?? 'Animal'} className="h-full w-full object-cover" /><div className="absolute bottom-4 right-4 flex gap-2"><Link to={`/animais/${animal.id}/editar`} className="flex h-11 w-11 items-center justify-center rounded-full bg-white/40 text-brand-900 transition-colors hover:bg-white/60" aria-label="Editar animal"><Pencil size={18} /></Link><button onClick={() => setDeleteDialogOpen(true)} disabled={deleting} className="flex h-11 w-11 items-center justify-center rounded-full bg-white/40 text-red-700 transition-colors hover:bg-red-50/70 disabled:opacity-50" aria-label="Excluir animal"><Trash2 size={18} /></button></div></div>
+          <div className="p-5"><div className="flex items-start justify-between gap-3"><div><h2 className="text-2xl font-bold tracking-tight text-[#17291e]">{animal.name ?? animal.tag ?? 'Sem nome'}</h2></div><span className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-bold ${STATUS_BADGE[animal.status]}`}><span className={`h-2.5 w-2.5 rounded-full ${STATUS_DOT[animal.status]}`} />{STATUS_LABEL[animal.status]}</span></div><div className="mt-3 flex flex-wrap gap-2"><span className="inline-flex items-center gap-1.5 rounded-lg bg-[#f3f5f8] px-2.5 py-1.5 text-[11px] font-semibold text-[#536176]"><Tag size={13} />{animal.breed ?? 'Sem raça'}</span><span className="inline-flex items-center gap-1.5 rounded-lg bg-[#f2f4f3] px-2.5 py-1.5 text-[11px] font-semibold text-[#65746d]"><UserRound size={13} />{animal.sex === 'F' ? 'Fêmea' : 'Macho'}</span></div><div className="mt-4 space-y-3 border-t border-[#e8efea] pt-4"><SideDetail icon={CalendarHeart} label="Nascimento" value={animal.birth_date ? new Date(animal.birth_date + 'T12:00:00').toLocaleDateString('pt-BR') : '—'} /><SideDetail icon={CalendarHeart} label="Idade" value={animal.birth_date ? age(animal.birth_date) : '—'} /><SideDetail icon={PawPrint} label="Mãe" value={animal.mother?.name ?? animal.mother?.tag ?? animal.mother_name ?? 'Sem nome'} /><SideDetail icon={UserRound} label="Pai / Sêmen" value={animal.father_tag ?? '—'} /></div></div>
         </section>
 
         <div className="min-w-0 space-y-4">
-          <nav className="grid grid-cols-2 gap-2 rounded-3xl border border-[#e4ece7] bg-white p-2 shadow-[0_8px_22px_rgba(22,61,38,.04)] sm:grid-cols-3">
-            {tabs.map(t => <button key={t.key} onClick={() => setTab(t.key)} className={`flex items-center justify-center gap-2 rounded-2xl px-3 py-3 text-sm font-semibold transition-colors ${tab === t.key ? 'bg-[#e8f8ed] text-[#185d3b]' : 'text-[#667a70] hover:bg-[#f4f8f5]'}`}>{t.icon}{t.label}</button>)}
+          <nav aria-label="Seções do animal" className={`grid grid-cols-2 gap-2 rounded-3xl border border-[#e4ece7] bg-white p-2 shadow-[0_8px_22px_rgba(22,61,38,.04)] ${tabs.length === 4 ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
+            {tabs.map(t => <button key={t.key} type="button" aria-pressed={tab === t.key} onClick={() => setTab(t.key)} className={`flex min-h-11 items-center justify-center gap-1.5 rounded-2xl px-2 py-3 text-xs font-semibold transition-colors sm:gap-2 sm:px-3 sm:text-sm ${tab === t.key ? 'bg-[#e8f8ed] text-[#185d3b]' : 'text-[#526158] hover:bg-[#f4f8f5]'}`}>{t.icon}{t.label}</button>)}
           </nav>
-          {tab === 'vacinas' && <section className="min-h-[480px] rounded-3xl border border-[#e4ece7] bg-white p-6 shadow-[0_10px_28px_rgba(22,61,38,.045)]"><div className="flex items-start justify-between gap-4"><div><h2 className="text-2xl font-bold text-[#182b20]">Vacinação</h2><p className="mt-1 text-sm text-[#7c8e83]">Registre e acompanhe todas as vacinas de {animal.name ?? 'seu animal'}.</p></div><Link to={`/vacinas/nova?animal=${animal.id}`} className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-800"><Syringe size={16} />Registrar</Link></div>{vaccinations.length === 0 ? <div className="flex min-h-[345px] flex-col items-center justify-center text-center"><span className="flex h-28 w-28 items-center justify-center rounded-full bg-[#eaf8ef] text-[#56aa7a]"><Syringe size={52} /></span><h3 className="mt-6 text-xl font-bold text-[#1d3024]">Nenhuma vacina registrada</h3><p className="mt-2 max-w-md text-sm leading-5 text-[#7d8e84]">Mantenha o histórico de vacinação sempre atualizado para garantir a saúde e o bem-estar de {animal.name ?? 'seu animal'}.</p><Link to={`/vacinas/nova?animal=${animal.id}`} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-brand-700 px-6 py-3 text-sm font-semibold text-white hover:bg-brand-800"><CirclePlus size={18} />Registrar vacina</Link></div> : <div className="mt-7 divide-y divide-[#edf2ee]">{vaccinations.map(v => <div key={v.id} className="flex justify-between py-3 text-sm"><span className="font-semibold text-[#2d4135]">{v.vaccine_name}</span><span className="text-[#718078]">{new Date(v.date + 'T12:00:00').toLocaleDateString('pt-BR')}</span></div>)}</div>}</section>}
-          {tab === 'eventos' && <ManagementCard icon={ListChecks} title="Histórico" subtitle="Linha do tempo completa do animal." emptyTitle="Nenhum histórico registrado" emptyText="Vacinas, partos e outros manejos aparecerão nesta linha do tempo." actionTo={`/vacinas/nova?animal=${animal.id}`} actionLabel="Registrar manejo" records={vaccinations.length + births.length}>{vaccinations.map(v => <div key={v.id} className="border-b border-[#edf2ee] py-3 text-sm"><span className="font-semibold text-[#2d4135]">{v.vaccine_name}</span><span className="ml-2 text-xs text-[#718078]">Vacinação</span></div>)}</ManagementCard>}
+          {tab === 'vacinas' && <section className="min-h-[480px] rounded-3xl border border-[#e4ece7] bg-white p-6 shadow-[0_10px_28px_rgba(22,61,38,.045)]"><div className="flex items-start justify-between gap-4"><div><h2 className="text-2xl font-bold text-[#182b20]">Vacinação</h2><p className="mt-1 text-sm text-[#7c8e83]">Registre e acompanhe todas as vacinas de {animal.name ?? 'seu animal'}.</p></div><Link to={`/vacinas/nova?animal=${animal.id}`} className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-800"><Syringe size={16} />Registrar</Link></div>{vaccinations.length === 0 ? <div className="flex min-h-[345px] flex-col items-center justify-center text-center"><span className="flex h-28 w-28 items-center justify-center rounded-full bg-[#eaf8ef] text-[#56aa7a]"><Syringe size={52} /></span><h3 className="mt-6 text-xl font-bold text-[#1d3024]">Nenhuma vacina registrada</h3><p className="mt-2 max-w-md text-sm leading-5 text-[#7d8e84]">Mantenha o histórico de vacinação sempre atualizado para garantir a saúde e o bem-estar de {animal.name ?? 'seu animal'}.</p><Link to={`/vacinas/nova?animal=${animal.id}`} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-brand-700 px-6 py-3 text-sm font-semibold text-white hover:bg-brand-800"><CirclePlus size={18} />Registrar vacina</Link></div> : <div className="mt-7 divide-y divide-[#edf2ee]"><div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 border-b border-[#dce7df] pb-3 text-xs font-bold uppercase tracking-[0.12em] text-[#61736a]"><span>Vacina</span><span>Data</span><span>Ações</span></div>{vaccinations.map(v => <div key={v.id} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 py-3 text-sm"><span className="min-w-0 font-semibold text-[#2d4135]">{v.vaccine_name}</span><span className="tabular-nums text-[#718078]">{new Date(v.date + 'T12:00:00').toLocaleDateString('pt-BR')}</span><span className="flex items-center gap-1"><Link to={`/vacinas/${v.id}/editar`} className="flex h-9 w-9 items-center justify-center rounded-lg text-brand-800 transition-colors hover:bg-brand-50" aria-label={`Editar vacina ${v.vaccine_name}`}><Pencil size={16} /></Link><button onClick={() => void handleVaccinationDelete(v)} className="flex h-9 w-9 items-center justify-center rounded-lg text-red-600 transition-colors hover:bg-red-50" aria-label={`Excluir vacina ${v.vaccine_name}`}><Trash2 size={16} /></button></span></div>)}</div>}</section>}
+          {tab === 'reproducao' && <ManagementCard icon={CalendarHeart} title="Reprodução" subtitle="Acompanhe gestações e previsões de parto." emptyTitle="Nenhuma gestação registrada" emptyText="Registre a cobertura ou inseminação para acompanhar a previsão de parto." actionTo={`/reproducao/nova?animal=${animal.id}`} actionLabel="Registrar gestação" records={pregnancies.length}>{pregnancies.map(pregnancy => <div key={pregnancy.id} className="flex items-center justify-between gap-4 border-b border-[#edf2ee] py-4 text-sm last:border-0"><div><p className="font-semibold text-[#2d4135]">{pregnancy.status === 'pregnant' ? 'Gestação em acompanhamento' : pregnancy.status === 'gave_birth' ? 'Parto registrado' : 'Gestação não confirmada'}</p><p className="mt-1 text-xs text-[#718078]">Início: {new Date(pregnancy.breeding_date + 'T12:00:00').toLocaleDateString('pt-BR')}</p></div><div className="shrink-0 text-right"><p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#718078]">Previsão</p><p className="mt-1 tabular-nums font-semibold text-brand-800">{new Date(pregnancy.expected_birth_date + 'T12:00:00').toLocaleDateString('pt-BR')}</p></div></div>)}</ManagementCard>}
+          {tab === 'genealogia' && <AnimalGenealogy key={animal.id} animal={animal} />}
+          {tab === 'eventos' && <ManagementCard icon={ListChecks} title="Histórico" subtitle="Vacinas, reprodução e manejos em ordem de data." emptyTitle="Nenhum registro no histórico" emptyText="Os registros de vacinação, reprodução e manejo aparecerão aqui." actionTo={`/eventos/novo?animal=${animal.id}`} actionLabel="Registrar manejo" records={historyEntries.length}>{historyEntries.map(entry => <div key={entry.id} className="flex flex-wrap items-start justify-between gap-2 border-b border-[#edf2ee] py-3 text-sm last:border-0"><div><p className="font-semibold text-[#2d4135]">{entry.title}</p><p className="mt-0.5 text-xs text-[#526158]">{entry.category}</p></div><time dateTime={entry.date} className="shrink-0 tabular-nums text-[#526158]">{new Date(entry.date + 'T12:00:00').toLocaleDateString('pt-BR')}</time></div>)}</ManagementCard>}
         </div>
       </div>
 

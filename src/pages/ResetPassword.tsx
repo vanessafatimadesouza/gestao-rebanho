@@ -45,10 +45,12 @@ export function ResetPassword() {
 
         <form onSubmit={handleSubmit} className="mt-7 space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Nova senha</label>
+            <label htmlFor="new-password" className="mb-1 block text-sm font-medium text-gray-700">Nova senha</label>
             <div className="relative">
               <input
+                id="new-password"
                 type={showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
                 value={password}
                 onChange={event => setPassword(event.target.value)}
                 minLength={6}
@@ -62,10 +64,12 @@ export function ResetPassword() {
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Confirmar nova senha</label>
+            <label htmlFor="confirm-password" className="mb-1 block text-sm font-medium text-gray-700">Confirmar nova senha</label>
             <div className="relative">
               <input
+                id="confirm-password"
                 type={showConfirmation ? 'text' : 'password'}
+                autoComplete="new-password"
                 value={confirmation}
                 onChange={event => setConfirmation(event.target.value)}
                 minLength={6}
@@ -79,7 +83,7 @@ export function ResetPassword() {
             </div>
           </div>
 
-          {error && <p className="rounded-lg bg-red-50/90 px-3 py-2 text-sm text-red-700">{error}</p>}
+          {error && <p role="alert" className="rounded-lg bg-red-50/90 px-3 py-2 text-sm text-red-700">{error}</p>}
 
           <button
             type="submit"

@@ -59,14 +59,14 @@ export function Login() {
   return (
     <main
       className="relative flex min-h-screen items-center justify-center overflow-hidden bg-brand-900 bg-cover bg-center p-5 sm:p-8"
-      style={{ backgroundImage: "url('/images/login-pasture-hd-cool.png')" }}
+      style={{ backgroundImage: "url('/images/login-landscape-sunset.png')" }}
     >
-      <div className="absolute inset-0 bg-black/50" aria-hidden="true" />
+      <div className="absolute inset-0 bg-black/30" aria-hidden="true" />
 
-      <section className="relative w-full max-w-md rounded-3xl border border-white/55 bg-white/70 p-6 shadow-[0_24px_65px_rgba(7,30,18,.38)] backdrop-blur-md sm:p-8">
+      <section className="relative w-full max-w-md rounded-3xl border border-white/55 bg-white/80 p-6 shadow-[0_24px_65px_rgba(7,30,18,.38)] backdrop-blur-md sm:p-8">
         <header className="mb-7 text-center">
-          <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-white/70 bg-white/50 text-3xl shadow-sm">🐄</span>
-          <h1 className="mt-4 text-2xl font-bold tracking-tight text-brand-900">Manejo</h1>
+          <img src="/brand/manejo-logo-transparent.png" alt="Manejo — Gestão pecuária" width="2072" height="759" className="mx-auto h-auto w-[290px] max-w-full" />
+          <h1 className="sr-only">Entrar no Manejo</h1>
           <p className="mt-1 text-sm text-brand-800">
             {mode === 'reset' ? 'Informe seu e-mail e enviaremos um link seguro para criar uma nova senha.' : 'Gestão inteligente do seu rebanho'}
           </p>
@@ -92,9 +92,11 @@ export function Login() {
 
           <form onSubmit={mode === 'reset' ? handlePasswordReset : handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
+              <label htmlFor="login-email" className="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
               <input
+                id="login-email"
                 type="email"
+                autoComplete="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
@@ -103,10 +105,12 @@ export function Login() {
               />
             </div>
             {mode !== 'reset' && <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+              <label htmlFor="login-password" className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
               <div className="relative">
                 <input
+                  id="login-password"
                   type={showPassword ? 'text' : 'password'}
+                  autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   required
@@ -135,8 +139,8 @@ export function Login() {
               </div>
             </div>}
 
-            {error && <p className="rounded-lg bg-red-50/90 px-3 py-2 text-sm text-red-700">{error}</p>}
-            {info && <p className="rounded-lg bg-brand-50/90 px-3 py-2 text-sm text-brand-800">{info}</p>}
+            {error && <p role="alert" className="rounded-lg bg-red-50/90 px-3 py-2 text-sm text-red-700">{error}</p>}
+            {info && <p role="status" className="rounded-lg bg-brand-50/90 px-3 py-2 text-sm text-brand-800">{info}</p>}
 
             <button
               type="submit"

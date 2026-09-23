@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertCircle, ArrowRight, Baby, Beef, CalendarDays, Check, ChevronRight, HeartPulse, Leaf, ListChecks, PawPrint, Search, ShieldCheck, Sprout, Syringe, Tag, UsersRound } from 'lucide-react'
+import { AlertCircle, ArrowRight, Baby, CalendarDays, CalendarHeart, Check, ChevronRight, Leaf, ListChecks, PawPrint, Search, ShieldCheck, Sprout, Syringe, Tag } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { addDaysISO } from '../lib/date'
 import { useAuth } from '../contexts/AuthContext'
 import { Vaccination } from '../types'
 
 interface Stats { totalAnimals: number; activeAnimals: number; females: number; males: number; recentBirths: number }
 interface UpcomingPregnancy { id: string; expected_birth_date: string; mother: { id: string; tag: string | null; name: string | null } | null }
-interface TimelineEntry { id: string; date: string; title: string; animal: string; category: 'Sanidade' | 'Parto'; to: string; icon: typeof Syringe }
+interface TimelineEntry { id: string; date: string; title: string; animal: string; category: 'Sanidade' | 'Parto'; to: string; icon: typeof Syringe; example?: boolean }
 
 const initialHerd = [
   { tag: 'VACA-001', name: 'Aurora', sex: 'F' as const, breed: 'Nelore', birth_date: '2019-03-14', notes: 'Matriz do rebanho inicial.' },
@@ -22,9 +23,8 @@ const initialHerd = [
   { tag: 'BEZERRO-001', name: 'Luar', sex: 'M' as const, breed: 'Nelore', birth_date: '2025-04-20', notes: 'Bezerro do rebanho inicial.' },
 ]
 
-function StatCard({ label, value, detail, icon: Icon }: { label: string; value: number | string; detail: string; icon: typeof PawPrint }) {
+function StatCard({ label, value, detail }: { label: string; value: number | string; detail: string }) {
   return <div className="dashboard-summary-stat">
-    <span className="dashboard-summary-icon"><Icon size={24} strokeWidth={2.35} /></span>
     <span className="min-w-0">
       <span className="dashboard-summary-label">{label}</span>
       <strong className="dashboard-summary-value">{value}</strong>
@@ -34,20 +34,19 @@ function StatCard({ label, value, detail, icon: Icon }: { label: string; value: 
 }
 
 function DateCard({ today }: { today: string }) {
-  return <div className="dashboard-summary-date text-white">
-    <svg className="dashboard-date-shape" aria-hidden="true" viewBox="0 0 430 98" preserveAspectRatio="none">
+  return <div className="dashboard-summary-feature text-white">
+    <svg className="dashboard-feature-shape" aria-hidden="true" viewBox="0 0 430 98" preserveAspectRatio="none">
       <defs>
-        <linearGradient id="dashboard-date-gradient" x1="0" y1="0" x2="1" y2=".75">
+        <linearGradient id="dashboard-feature-gradient" x1="0" y1="0" x2="1" y2=".75">
           <stop offset="0%" stopColor="#155332" />
           <stop offset="56%" stopColor="#0f6037" />
           <stop offset="100%" stopColor="#176a40" />
         </linearGradient>
       </defs>
-      <path d="M30 0H329C354 0 364 12 375 35C391 68 399 91 430 98H30C13.4 98 0 84.6 0 68V30C0 13.4 13.4 0 30 0Z" fill="url(#dashboard-date-gradient)" />
+      <path d="M30 0H329C354 0 364 12 375 35C391 68 399 91 430 98H30C13.4 98 0 84.6 0 68V30C0 13.4 13.4 0 30 0Z" fill="url(#dashboard-feature-gradient)" />
     </svg>
-    <span className="dashboard-date-icon"><CalendarDays size={22} strokeWidth={2.2} /></span>
-    <span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold">Hoje é {today}</span><span className="mt-1 block truncate text-xs text-[#c8ddce]">Informação certa para decisões melhores.</span></span>
-    <ChevronRight className="dashboard-date-chevron" size={22} />
+    <span className="dashboard-feature-icon"><CalendarDays size={22} strokeWidth={2.2} aria-hidden="true" /></span>
+    <span className="min-w-0"><span className="block text-sm font-bold leading-5">Hoje é {today}</span><span className="mt-1 block text-xs text-[#c8ddce]">Informação certa para decisões melhores.</span></span>
   </div>
 }
 
@@ -101,9 +100,15 @@ export function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [upcoming, setUpcoming] = useState<Vaccination[]>([])
   const [upcomingPregnancies, setUpcomingPregnancies] = useState<UpcomingPregnancy[]>([])
+  const [timelineLoading, setTimelineLoading] = useState(true)
   const today = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })
 
-  useEffect(() => { if (farm) { loadStats(); loadUpcomingVaccinations(); loadUpcomingPregnancies() } }, [farm])
+  useEffect(() => {
+    if (!farm) return
+    setTimelineLoading(true)
+    void loadStats()
+    void Promise.all([loadUpcomingVaccinations(), loadUpcomingPregnancies()]).finally(() => setTimelineLoading(false))
+  }, [farm])
 
   useEffect(() => {
     if (!farm || !stats || stats.totalAnimals > 2) return
@@ -150,7 +155,7 @@ export function Dashboard() {
   const malePercent = stats?.activeAnimals ? Math.round(((stats.males ?? 0) / stats.activeAnimals) * 100) : 0
   const timelineItems: TimelineEntry[] = [
     ...upcoming.filter(item => item.next_due_date).map(item => ({ id: `v-${item.id}`, date: item.next_due_date!, title: item.vaccine_name, animal: item.animal?.name || item.animal?.tag || 'Animal cadastrado', category: 'Sanidade' as const, to: '/vacinas', icon: Syringe })),
-    ...upcomingPregnancies.map(item => ({ id: `p-${item.id}`, date: item.expected_birth_date, title: 'Nascimento previsto', animal: item.mother?.name || item.mother?.tag || 'Matriz cadastrada', category: 'Parto' as const, to: item.mother?.id ? `/animais/${item.mother.id}` : '/partos', icon: Baby })),
+    ...upcomingPregnancies.map(item => ({ id: `p-${item.id}`, date: item.expected_birth_date, title: 'Nascimento previsto', animal: item.mother?.name || item.mother?.tag || 'Matriz cadastrada', category: 'Parto' as const, to: item.mother?.id ? `/animais/${item.mother.id}` : '/partos', icon: CalendarHeart })),
   ].sort((a, b) => a.date.localeCompare(b.date)).slice(0, 4)
 
   return <div className="space-y-6">
@@ -184,19 +189,18 @@ export function Dashboard() {
       <div className="dashboard-hero-cards">
         <DateCard today={today} />
         <div className="dashboard-summary-metrics">
-          <StatCard icon={Beef} label="Plantel ativo" value={stats?.activeAnimals ?? '—'} detail={`${stats?.females ?? 0} fêmeas · ${stats?.males ?? 0} machos`} />
-          <StatCard icon={Syringe} label="Vacinas próximas" value={upcoming.length} detail="Vencimentos em 30 dias" />
-          <StatCard icon={HeartPulse} label="Partos recentes" value={stats?.recentBirths ?? '—'} detail="Registros nos últimos 30 dias" />
-          <StatCard icon={UsersRound} label="Total cadastrado" value={stats?.totalAnimals ?? '—'} detail="Inclui animais baixados" />
+          <StatCard label="Plantel ativo" value={stats?.activeAnimals ?? '—'} detail={`${stats?.females ?? 0} fêmeas · ${stats?.males ?? 0} machos`} />
+          <StatCard label="Vacinas próximas" value={upcoming.length} detail="Vencimentos em 30 dias" />
+          <StatCard label="Partos recentes" value={stats?.recentBirths ?? '—'} detail="Registros nos últimos 30 dias" />
         </div>
       </div>
     </section>
 
-    <section><div className="mb-4"><SectionTitle>Ações rápidas</SectionTitle></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><QuickAction to="/animais/novo" label="Cadastrar animal" detail="Adicionar um novo animal ao rebanho" icon={Tag} /><QuickAction to="/vacinas/nova" label="Registrar vacina" detail="Aplicar vacina ou reforço" icon={ShieldCheck} /><QuickAction to="/partos/novo" label="Registrar parto" detail="Incluir uma nova cria" icon={HeartPulse} /><QuickAction to="/animais" label="Consultar rebanho" detail="Acessar todos os animais" icon={Search} /></div></section>
+    <section><div className="mb-4"><SectionTitle>Ações rápidas</SectionTitle></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><QuickAction to="/animais/novo" label="Cadastrar animal" detail="Adicionar um novo animal ao rebanho" icon={Tag} /><QuickAction to="/vacinas/nova" label="Registrar vacina" detail="Aplicar vacina ou reforço" icon={ShieldCheck} /><QuickAction to="/partos/novo" label="Registrar parto" detail="Incluir uma nova cria" icon={CalendarHeart} /><QuickAction to="/animais" label="Consultar rebanho" detail="Acessar todos os animais" icon={Search} /></div></section>
 
     <section className="grid gap-5 xl:grid-cols-[.9fr_1.55fr]">
       <div className="rounded-3xl border border-[#e6eee8] bg-white/85 p-5 shadow-[0_8px_25px_rgba(22,60,40,.04)]"><SectionTitle to="/animais" label="Ver detalhes">Situação do rebanho</SectionTitle><div className="flex flex-col items-center gap-5 sm:flex-row"><HerdChart total={stats?.activeAnimals ?? 0} femalePercent={femalePercent} malePercent={malePercent} /><div className="w-full space-y-2.5"><Legend color="bg-brand-700" label="Fêmeas" value={`${stats?.females ?? 0} (${femalePercent}%)`} /><Legend color="bg-[#acd9b9]" label="Machos" value={`${stats?.males ?? 0} (${malePercent}%)`} /><Legend color="bg-[#e4eee7]" label="Outros / baixados" value={`${Math.max(0, (stats?.totalAnimals ?? 0) - (stats?.activeAnimals ?? 0))}`} /></div></div></div>
-      <TimelineCard items={timelineItems} />
+      <TimelineCard items={timelineItems} loading={timelineLoading} />
     </section>
 
     <section className="grid gap-5 lg:grid-cols-2">
@@ -206,24 +210,32 @@ export function Dashboard() {
   </div>
 }
 
-function TimelineCard({ items }: { items: TimelineEntry[] }) {
+function TimelineCard({ items, loading }: { items: TimelineEntry[]; loading: boolean }) {
+  const showingExamples = !loading && items.length === 0
+  const shownItems: TimelineEntry[] = showingExamples ? [
+    { id: 'example-vaccine', date: addDaysISO(7), title: 'Reforço de vacinação', animal: '', category: 'Sanidade', to: '', icon: Syringe, example: true },
+    { id: 'example-birth', date: addDaysISO(21), title: 'Nascimento previsto', animal: '', category: 'Parto', to: '', icon: CalendarHeart, example: true },
+  ] : items
+
   return <div className="rounded-3xl border border-[#e6eee8] bg-white/90 p-5 shadow-[0_8px_25px_rgba(22,60,40,.04)]">
-    <div className="mb-4 flex items-start justify-between gap-4">
-      <div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-50 text-brand-700"><CalendarDays size={21} /></span><span><h2 className="text-lg font-bold tracking-tight text-[#16271e]">Linha do tempo</h2><p className="text-xs text-[#78877e]">Próximas datas importantes do seu rebanho</p></span></div>
-      <Link to="/vacinas" className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-50 px-3 py-1.5 text-xs font-bold text-brand-800 hover:bg-brand-100">Ver todas <ArrowRight size={13} /></Link>
+    <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+      <div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-50 text-brand-700"><CalendarDays size={21} aria-hidden="true" /></span><span><h2 className="text-lg font-bold tracking-tight text-[#16271e]">Linha do tempo</h2><p className="text-xs text-[#78877e]">{showingExamples ? 'Prévia — nenhuma data programada' : 'Próximas datas importantes do seu rebanho'}</p></span></div>
+      <Link to="/calendario" className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full bg-brand-50 px-4 text-xs font-bold text-brand-800 hover:bg-brand-100">Ver calendário <ArrowRight size={14} aria-hidden="true" /></Link>
     </div>
-    {items.length === 0 ? <div className="flex min-h-44 flex-col items-center justify-center rounded-2xl bg-[#f8fbf9] px-5 text-center"><CalendarDays size={28} className="text-brand-300" /><p className="mt-3 text-sm font-semibold text-[#33483b]">Nenhuma data programada</p><p className="mt-1 text-xs text-[#829087]">Vacinas e partos previstos aparecerão aqui.</p></div> : <div>{items.map((item, index) => {
+    {loading ? <div role="status" className="flex min-h-44 items-center justify-center rounded-2xl bg-[#f8fbf9] px-5 text-center text-sm text-[#526158]">Carregando próximas datas...</div> : <div>{shownItems.map((item, index) => {
       const date = new Date(item.date + 'T12:00:00')
       const Icon = item.icon
-      const isLast = index === items.length - 1
-      return <Link key={item.id} to={item.to} className="group grid grid-cols-[60px_24px_42px_minmax(0,1fr)_auto_18px] items-center gap-3 border-b border-[#edf2ee] py-2.5 last:border-0">
-        <span className="flex h-14 flex-col items-center justify-center rounded-xl bg-brand-50 text-brand-900"><strong className="text-lg leading-5">{String(date.getDate()).padStart(2, '0')}</strong><span className="text-[11px] font-semibold lowercase">{date.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}</span></span>
-        <span className="relative flex h-full items-center justify-center"><span className="relative z-10 h-3 w-3 rounded-full bg-[#43cf8d]" />{!isLast && <span className="absolute left-1/2 top-1/2 h-[calc(100%+20px)] w-px -translate-x-1/2 bg-[#d8e6dc]" />}</span>
-        <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${item.category === 'Parto' ? 'bg-[#fff4df] text-[#bd7b18]' : 'bg-brand-50 text-brand-700'}`}><Icon size={19} /></span>
-        <span className="min-w-0"><span className="block truncate text-sm font-bold text-[#24372b]">{item.title}</span><span className="block truncate text-xs text-[#7d8a82]">{item.animal}</span></span>
-        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${item.category === 'Parto' ? 'bg-[#fff3df] text-[#bb7413]' : 'bg-brand-50 text-brand-700'}`}>{item.category}</span>
-        <ChevronRight size={17} className="text-[#819087] transition-transform group-hover:translate-x-0.5" />
-      </Link>
+      const isLast = index === shownItems.length - 1
+      const rowClass = `grid items-center gap-3 py-2.5 ${item.example ? 'grid-cols-[48px_minmax(0,1fr)] sm:grid-cols-[60px_24px_42px_minmax(0,1fr)_auto]' : 'group grid-cols-[48px_minmax(0,1fr)_18px] sm:grid-cols-[60px_24px_42px_minmax(0,1fr)_auto_18px]'}`
+      const content = <>
+        <span className="flex h-12 flex-col items-center justify-center rounded-xl bg-brand-50 text-brand-900 sm:h-14"><strong className="text-lg leading-5">{String(date.getDate()).padStart(2, '0')}</strong><span className="text-[11px] font-semibold lowercase">{date.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}</span></span>
+        <span className="relative hidden h-full items-center justify-center sm:flex"><span className="relative z-10 h-3 w-3 rounded-full bg-[#43cf8d]" />{!isLast && <span className="absolute left-1/2 top-1/2 h-[calc(100%+20px)] w-px -translate-x-1/2 bg-[#d8e6dc]" />}</span>
+        <span className={`hidden h-10 w-10 items-center justify-center rounded-xl sm:flex ${item.category === 'Parto' ? 'bg-[#fff4df] text-[#bd7b18]' : 'bg-brand-50 text-brand-700'}`}><Icon size={19} aria-hidden="true" /></span>
+        <span className="min-w-0"><span className="block text-sm font-bold text-[#24372b]">{item.title}</span>{item.animal && <span className="block text-xs text-[#7d8a82]">{item.animal}</span>}</span>
+        <span className={`hidden rounded-full px-3 py-1 text-xs font-semibold sm:inline-flex ${item.category === 'Parto' ? 'bg-[#fff3df] text-[#bb7413]' : 'bg-brand-50 text-brand-700'}`}>{item.category}</span>
+        {!item.example && <ChevronRight size={17} className="text-[#819087] transition-transform group-hover:translate-x-0.5" aria-hidden="true" />}
+      </>
+      return item.example ? <div key={item.id} className={rowClass}>{content}</div> : <Link key={item.id} to={item.to} className={rowClass}>{content}</Link>
     })}</div>}
   </div>
 }

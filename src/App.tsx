@@ -1,31 +1,45 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
-import { Login } from './pages/Login'
-import { ResetPassword } from './pages/ResetPassword'
-import { FarmSetup } from './pages/FarmSetup'
-import { Dashboard } from './pages/Dashboard'
-import { Animals } from './pages/Animals'
-import { AnimalForm } from './pages/AnimalForm'
-import { AnimalDetail } from './pages/AnimalDetail'
-import { VaccinationsList, VaccinationForm } from './pages/Vaccinations'
-import { BirthsList, BirthForm } from './pages/Births'
-import { EventForm } from './pages/EventForm'
-import { ReproductionForm } from './pages/ReproductionForm'
+const Login = lazy(() => import('./pages/Login').then(module => ({ default: module.Login })))
+const ResetPassword = lazy(() => import('./pages/ResetPassword').then(module => ({ default: module.ResetPassword })))
+const FarmSetup = lazy(() => import('./pages/FarmSetup').then(module => ({ default: module.FarmSetup })))
+const FarmSelection = lazy(() => import('./pages/FarmSelection').then(module => ({ default: module.FarmSelection })))
+const Dashboard = lazy(() => import('./pages/Dashboard').then(module => ({ default: module.Dashboard })))
+const Calendar = lazy(() => import('./pages/Calendar').then(module => ({ default: module.Calendar })))
+const Animals = lazy(() => import('./pages/Animals').then(module => ({ default: module.Animals })))
+const AnimalForm = lazy(() => import('./pages/AnimalForm').then(module => ({ default: module.AnimalForm })))
+const AnimalDetail = lazy(() => import('./pages/AnimalDetail').then(module => ({ default: module.AnimalDetail })))
+const VaccinationsList = lazy(() => import('./pages/Vaccinations').then(module => ({ default: module.VaccinationsList })))
+const VaccinationForm = lazy(() => import('./pages/Vaccinations').then(module => ({ default: module.VaccinationForm })))
+const BirthsList = lazy(() => import('./pages/Births').then(module => ({ default: module.BirthsList })))
+const BirthForm = lazy(() => import('./pages/Births').then(module => ({ default: module.BirthForm })))
+const EventForm = lazy(() => import('./pages/EventForm').then(module => ({ default: module.EventForm })))
+const ReproductionForm = lazy(() => import('./pages/ReproductionForm').then(module => ({ default: module.ReproductionForm })))
+
+const loadingView = <div role="status" className="flex min-h-dvh items-center justify-center bg-brand-50 px-4 text-sm font-semibold text-brand-800">Carregando Manejo...</div>
 
 function AppRoutes() {
   const { session, farm, loading } = useAuth()
 
-  if (loading) return null
+  if (loading) return loadingView
 
   return (
+    <Suspense fallback={loadingView}>
     <Routes>
       <Route path="/redefinir-senha" element={<ResetPassword />} />
       {session && !farm ? (
-        <Route path="*" element={<FarmSetup />} />
+        <>
+          <Route path="/fazendas" element={<FarmSelection />} />
+          <Route path="/fazendas/nova" element={<FarmSetup />} />
+          <Route path="*" element={<Navigate to="/fazendas" replace />} />
+        </>
       ) : <>
       <Route path="/login" element={<Login />} />
+      <Route path="/fazendas" element={<ProtectedRoute><FarmSelection /></ProtectedRoute>} />
+      <Route path="/fazendas/nova" element={<ProtectedRoute><FarmSetup /></ProtectedRoute>} />
       <Route
         path="/"
         element={
@@ -97,6 +111,26 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/calendario"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <Calendar />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/vacinas/:id/editar"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <VaccinationForm />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/partos"
         element={
           <ProtectedRoute>
@@ -139,6 +173,7 @@ function AppRoutes() {
       <Route path="*" element={<Navigate to="/" replace />} />
       </>}
     </Routes>
+    </Suspense>
   )
 }
 

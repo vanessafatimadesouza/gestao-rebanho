@@ -1,6 +1,6 @@
 import { useEffect, useState, FormEvent } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { PageHeader } from '../components/PageHeader'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { Animal, AnimalEvent } from '../types'
@@ -61,22 +61,17 @@ export function EventForm() {
     navigate(preAnimalId ? `/animais/${preAnimalId}` : '/')
   }
 
-  const inputClass = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500'
-  const labelClass = 'block text-sm font-medium text-gray-700 mb-1'
+  const inputClass = 'w-full rounded-xl border border-[#dce7df] bg-[#fbfdfb] px-3 py-2.5 text-sm outline-none'
+  const labelClass = 'mb-1.5 block text-sm font-semibold text-[#415148]'
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg">
-          <ArrowLeft size={18} />
-        </button>
-        <h1 className="text-xl font-bold text-gray-800">Registrar evento</h1>
-      </div>
+    <div className="mx-auto max-w-2xl space-y-5">
+      <PageHeader backTo={preAnimalId ? `/animais/${preAnimalId}` : '/animais'} kicker="Manejo" title="Registrar evento" />
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
+      <form onSubmit={handleSubmit} className="app-surface space-y-5 p-5 sm:p-7">
         <div>
-          <label className={labelClass}>Animal *</label>
-          <select value={animalId} onChange={e => setAnimalId(e.target.value)} required className={inputClass}>
+          <label htmlFor="event-animal" className={labelClass}>Animal *</label>
+          <select id="event-animal" value={animalId} onChange={e => setAnimalId(e.target.value)} required className={inputClass}>
             <option value="">— Selecionar animal —</option>
             {animals.map(a => (
               <option key={a.id} value={a.id}>
@@ -87,24 +82,25 @@ export function EventForm() {
         </div>
 
         <div>
-          <label className={labelClass}>Tipo de evento *</label>
-          <select value={eventType} onChange={e => setEventType(e.target.value as AnimalEvent['event_type'])} className={inputClass}>
+          <label htmlFor="event-type" className={labelClass}>Tipo de evento *</label>
+          <select id="event-type" value={eventType} onChange={e => setEventType(e.target.value as AnimalEvent['event_type'])} className={inputClass}>
             {EVENT_LABELS.map(opt => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className={labelClass}>Data *</label>
-            <input type="date" value={date} onChange={e => setDate(e.target.value)} required className={inputClass} />
+            <label htmlFor="event-date" className={labelClass}>Data *</label>
+            <input id="event-date" type="date" value={date} onChange={e => setDate(e.target.value)} required className={inputClass} />
           </div>
           <div>
-            <label className={labelClass}>
+            <label htmlFor="event-value" className={labelClass}>
               {eventType === 'weight' ? 'Peso (kg)' : eventType === 'sale' || eventType === 'purchase' ? 'Valor (R$)' : 'Valor'}
             </label>
             <input
+              id="event-value"
               type="number"
               step="0.01"
               value={value}
@@ -116,8 +112,9 @@ export function EventForm() {
         </div>
 
         <div>
-          <label className={labelClass}>Descrição</label>
+          <label htmlFor="event-description" className={labelClass}>Descrição</label>
           <textarea
+            id="event-description"
             value={description}
             onChange={e => setDescription(e.target.value)}
             rows={2}
@@ -126,20 +123,20 @@ export function EventForm() {
           />
         </div>
 
-        {error && <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+        {error && <p role="alert" className="rounded-xl border border-red-100 bg-red-50 px-3 py-2.5 text-sm text-red-700">{error}</p>}
 
-        <div className="flex gap-3 pt-2">
+        <div className="flex flex-col-reverse gap-3 border-t border-[#e7eee9] pt-5 sm:flex-row sm:justify-end">
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="flex-1 border border-gray-300 text-gray-700 font-medium py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
+            className="rounded-xl px-5 py-2.5 text-sm font-semibold text-[#526158] transition-colors hover:bg-[#f1f5f2]"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="flex-1 bg-brand-700 text-white font-medium py-2.5 rounded-lg hover:bg-brand-800 transition-colors disabled:opacity-60"
+            className="rounded-xl bg-brand-700 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_8px_18px_rgba(31,73,51,.18)] transition-colors hover:bg-brand-800 disabled:opacity-60"
           >
             {loading ? 'Salvando...' : 'Registrar'}
           </button>
