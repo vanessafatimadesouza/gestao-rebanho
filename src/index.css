@@ -50,6 +50,13 @@
   overflow: visible;
 }
 
+@media (max-width: 767px) {
+  .mobile-bottom-nav {
+    isolation: isolate;
+    background-color: #fff;
+  }
+}
+
 /* Mantém as colunas de vacinação próximas o bastante para leitura rápida em telas largas. */
 .min-h-\[480px\] > .mt-7 {
   width: 100%;
