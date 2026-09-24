@@ -45,6 +45,7 @@
 .dashboard-hero-cards {
   position: relative;
   display: grid;
+  gap: 12px;
   margin: 14px 18px 22px;
   overflow: visible;
 }
@@ -78,6 +79,8 @@
   align-items: center;
   gap: 14px;
   padding: 18px 24px;
+  overflow: hidden;
+  border-radius: 24px;
   background: linear-gradient(112deg, #155332 0%, #0f6037 54%, #176a40 100%);
 }
 
@@ -206,6 +209,7 @@
     grid-template-columns: minmax(360px, 29%) minmax(0, 1fr);
     min-height: 98px;
     margin: 0;
+    gap: 0;
     overflow: visible;
   }
 
@@ -216,6 +220,7 @@
     margin: -1px -24px -1px -1px;
     padding: 18px 44px 18px 20px;
     border-radius: 0;
+    overflow: visible;
     background: transparent;
     box-shadow: none;
   }
